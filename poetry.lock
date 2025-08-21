@@ -1241,6 +1241,29 @@ url = "https://pkgs.dev.azure.com/WRLCdev/Python/_packaging/wrlc-python/pypi/sim
 reference = "wrlc-python"
 
 [[package]]
+name = "wrlc-azure-storage-service"
+version = "0.1.1"
+description = ""
+optional = false
+python-versions = ">=3.11"
+groups = ["main"]
+files = [
+    {file = "wrlc_azure_storage_service-0.1.1-py3-none-any.whl", hash = "sha256:6858687a21a2bd00627f73ad3f3cf45f5cf3a1c55ab9a63bf8ee219a97df7801"},
+    {file = "wrlc_azure_storage_service-0.1.1.tar.gz", hash = "sha256:e4c9bdfbbe59e1202de067ec573ed8877479c60754d543e24569a898996062cc"},
+]
+
+[package.dependencies]
+azure-core = ">=1.35.0,<2.0.0"
+azure-data-tables = ">=12.7.0,<13.0.0"
+azure-storage-blob = ">=12.26.0,<13.0.0"
+azure-storage-queue = ">=12.13.0,<13.0.0"
+
+[package.source]
+type = "legacy"
+url = "https://pkgs.dev.azure.com/WRLCdev/Python/_packaging/wrlc-python/pypi/simple"
+reference = "wrlc-python"
+
+[[package]]
 name = "xmltodict"
 version = "0.14.2"
 description = "Makes working with XML feel like you are working with JSON"
@@ -1384,4 +1407,4 @@ reference = "wrlc-python"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "8d0c3aeb46439dc84a71cf8ac4441cd1d2701fdcdee5a0390b1de17eaa5952f5"
+content-hash = "a1d1f802ed53876869c4c0f8659748bec94cdc9f81d3d6cf3a90252b2172a2bd"

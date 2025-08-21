@@ -2,6 +2,10 @@
 import json
 import logging
 import re
+import uuid
+from datetime import datetime, timezone
+
+import azure.core.exceptions
 import time
 from typing import Any
 
@@ -10,12 +14,13 @@ from requests import RequestException
 from wrlc_alma_api_client import AlmaApiClient  # type: ignore
 from wrlc_alma_api_client.exceptions import AlmaApiError  # type: ignore
 from wrlc_alma_api_client.models import Item  # type: ignore
+from wrlc_azure_storage_service import StorageService
 
 from alma_item_checks_processor_service.config import (
     API_CLIENT_TIMEOUT,
     EXCLUDED_NOTES,
     PROVENANCE,
-    SKIP_LOCATIONS
+    SKIP_LOCATIONS, SCF_NO_X_QUEUE, SCF_NO_X_CONTAINER
 )
 from alma_item_checks_processor_service.models import Institution
 from alma_item_checks_processor_service.database import SessionMaker
@@ -298,26 +303,29 @@ class ProcessorService:
         Args:
             item_data (dict[str, Any]): Item data
         """
-        iz_code: str = item_data.get("institution_code")  # IZ code
-        institution: Institution = self.get_institution(iz_code)  # Institution object
+        job_id: str = self.generate_job_id('scf_no_x')  # generate a unique job ID
 
-        alma_client: AlmaApiClient = AlmaApiClient(  # initialize Alma API client
-            api_key=institution.api_key,  # API key
-            region="NA",  # Alma region
-            timeout=API_CLIENT_TIMEOUT  # HTTP request timeout limit
-        )
+        barcode: str = item_data.get("item_data").item_data.barcode  # get barcode value
+        item_data.get("item_data").item_data.barcode = barcode + "X"  # append X to barcode
 
-        item_object: Item = item_data.get("item_data")  # item object
-        item_object.item_data.barcode = item_data.get("barcode") + "X"  # Add X to end of barcode
+        storage_service: StorageService = StorageService()  # initialize storage service
 
-        alma_client.items.update_item(  # Update item in Alma
-            mms_id=item_object.bib_data.mms_id,  # Bib ID
-            holding_id=item_object.holding_data.holding_id,  # Holding ID
-            item_pid=item_object.item_data.pid,  # Item ID
-            item_record_data=item_object  # Updated item
-        )
+        try:
+            storage_service.upload_blob_data(  # upload item data dict blob
+                container_name=SCF_NO_X_CONTAINER,  # container
+                blob_name=job_id + ".json",  # blob name
+                data=json.dumps(item_data).encode()  # data
+            )
+        except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError):
+            return
 
-        # TODO: Notification
+        try:
+            storage_service.send_queue_message(  # send claim ticket
+                queue_name=SCF_NO_X_QUEUE,  # queue
+                message_content={"job_id": job_id}  # message
+            )
+        except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError):
+            return
 
     def scf_no_row_tray_should_process(self, item_data: Item, barcode: str) -> bool:
         """Check if SCF item has missing or incorrect row/tray data
@@ -431,3 +439,16 @@ class ProcessorService:
             item_data (Item): The item data
         """
         # TODO: Entire method
+
+    def generate_job_id(self, process_name: str) -> str:
+        """Generate a job ID
+
+        Args:
+            process_name (str): The name of the process
+        Returns:
+        """
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+        unique_id = str(uuid.uuid4())[:8]
+        job_id = f"job_{process_name}_{timestamp}_{unique_id}"
+
+        return job_id

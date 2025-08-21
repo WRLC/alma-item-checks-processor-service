@@ -5,12 +5,18 @@ STORAGE_CONNECTION_STRING = os.getenv(STORAGE_CONNECTION_SETTING_NAME)
 
 SQLALCHEMY_CONNECTION_STRING = os.getenv("SQLALCHEMY_CONNECTION_STRING")
 
-BARCODE_RETRIEVAL_QUEUE = os.getenv("BARCODE_RETRIEVAL_QUEUE", "barcode-retrieval-queue")
+FETCH_QUEUE = os.getenv("FETCH_QUEUE", "fetch-queue")
+SCF_NO_X_QUEUE = os.getenv("SCF_NO_X_QUEUE", "scf-no-x-queue")
+SCF_NO_ROW_TRAY_QUEUE = os.getenv("SCF_NO_ROW_TRAY_QUEUE", "scf-no-row-tray-queue")
+NOTIFICATION_QUEUE = os.getenv("NOTIFICATION_QUEUE", "notification-queue")
+
+SCF_NO_X_CONTAINER = os.getenv("SCF_NO_X_CONTAINER", "scf-no-x-container")
+SCF_NO_ROW_TRAY_CONTAINER = os.getenv("SCF_NO_ROW_TRAY_CONTAINER", "scf-no-row-tray-container")
+
+SCF_NO_ROW_TRAY_STAGE_TABLE = os.getenv("SCF_NO_ROW_TRAY_STAGE_TABLE", "scfnorowtraystagetable")
+SCF_NO_ROW_TRAY_REPORT_TABLE = os.getenv("SCF_NO_ROW_TRAY_REPORT_TABLE", "scfnorowtrayreporttable")
 
 API_CLIENT_TIMEOUT = int(os.getenv("API_CLIENT_TIMEOUT", 90))
-
-ITEM_VALIDATION_QUEUE = os.getenv("ITEM_VALIDATION_QUEUE", "item-validation-queue")
-ITEM_VALIDATION_CONTAINER = os.getenv("ITEM_VALIDATION_CONTAINER", "item-validation")
 
 # --- Business Logic Constants ---
 PROVENANCE = [

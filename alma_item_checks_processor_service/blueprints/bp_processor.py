@@ -5,7 +5,6 @@ import azure.functions as func
 from wrlc_alma_api_client.models import Item  # type: ignore
 
 from alma_item_checks_processor_service.config import BARCODE_RETRIEVAL_QUEUE, STORAGE_CONNECTION_SETTING_NAME
-from alma_item_checks_processor_service.models import Institution
 from alma_item_checks_processor_service.services.processor_service import ProcessorService
 
 bp: func.Blueprint = func.Blueprint()
