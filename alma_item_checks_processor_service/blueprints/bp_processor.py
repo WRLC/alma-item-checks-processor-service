@@ -4,7 +4,7 @@ from typing import Any
 import azure.functions as func
 from wrlc_alma_api_client.models import Item  # type: ignore
 
-from alma_item_checks_processor_service.config import BARCODE_RETRIEVAL_QUEUE, STORAGE_CONNECTION_SETTING_NAME
+from alma_item_checks_processor_service.config import FETCH_ITEM_QUEUE, STORAGE_CONNECTION_SETTING_NAME
 from alma_item_checks_processor_service.services.processor_service import ProcessorService
 
 bp: func.Blueprint = func.Blueprint()
@@ -13,7 +13,7 @@ bp: func.Blueprint = func.Blueprint()
 @bp.function_name("process_item_data")
 @bp.queue_trigger(
     arg_name="barcodemsg",
-    queue_name=BARCODE_RETRIEVAL_QUEUE,
+    queue_name=FETCH_ITEM_QUEUE,
     connection=STORAGE_CONNECTION_SETTING_NAME
 )
 def process_item_data(barcodemsg: func.QueueMessage) -> None:

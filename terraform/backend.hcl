@@ -6,4 +6,4 @@ storage_account_name = "stterraformstatewrlc123"
 
 # These are static in your workflow
 container_name       = "tfstate"
-key                  = "aicwebhookserviceterraform.tfstate"
+key                  = "aicprocessorserviceterraform.tfstate"
