@@ -10,10 +10,6 @@ variable "shared_storage_account_name" {
   type = string
 }
 
-variable "fetch_queue_name" {
-  type = string
-}
-
 variable "asp_resource_group_name" {
   type = string
 }

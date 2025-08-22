@@ -16,7 +16,9 @@ dependencies = [
     "azure-storage-blob (>=12.26.0,<13.0.0)",
     "azure-storage-queue (>=12.13.0,<13.0.0)",
     "wrlc-alma-api-client (>=0.1.5,<0.2.0)",
-    "wrlc-azure-storage-service (>=0.1.1,<0.2.0)"
+    "wrlc-azure-storage-service (>=0.1.1,<0.2.0)",
+    "alembic (>=1.16.4,<2.0.0)",
+    "PyMySQL (>=1.1.0,<2.0.0)"
 ]
 
 [[tool.poetry.source]]
