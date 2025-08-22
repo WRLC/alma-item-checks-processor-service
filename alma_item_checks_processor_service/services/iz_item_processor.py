@@ -1,8 +1,8 @@
 """IZ item processor service"""
 from wrlc_alma_api_client.models import Item
 
-from alma_item_checks_processor_service.config import CHECKED_IZ_LOCATIONS
 from alma_item_checks_processor_service.services.base_processor import BaseItemProcessor
+from alma_item_checks_processor_service.config import CHECKED_IZ_LOCATIONS
 
 
 class IZItemProcessor(BaseItemProcessor):

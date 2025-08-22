@@ -13,7 +13,9 @@ from wrlc_alma_api_client.models import Item  # type: ignore
 from alma_item_checks_processor_service.config import API_CLIENT_TIMEOUT
 from alma_item_checks_processor_service.database import SessionMaker
 from alma_item_checks_processor_service.models import Institution
-from alma_item_checks_processor_service.services import InstitutionService, IZItemProcessor, SCFItemProcessor
+from alma_item_checks_processor_service.services.institution_service import InstitutionService
+from alma_item_checks_processor_service.services.iz_item_processor import IZItemProcessor
+from alma_item_checks_processor_service.services.scf_item_processor import SCFItemProcessor
 
 
 # noinspection PyMethodMayBeStatic
