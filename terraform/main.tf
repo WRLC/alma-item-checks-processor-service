@@ -1,95 +1,101 @@
-data "azurerm_resource_group" "project_rg_shared" {
-  name = var.shared_project_resource_group_name
-}
-
-data "azurerm_storage_account" "existing" {
-  name                = var.shared_storage_account_name
-  resource_group_name = data.azurerm_resource_group.project_rg_shared.name
-}
-
-data "azurerm_service_plan" "existing" {
-  name                = var.app_service_plan_name
-  resource_group_name = var.asp_resource_group_name
+# DigiCert Global Root G2 certificate
+data "http" "digicert_global_root_g2" {
+  url = "https://cacerts.digicert.com/DigiCertGlobalRootG2.crt.pem"
 }
 
 locals {
-  fetch_item_queue_name             = "fetch-item-queue"
-  scf_no_x_queue_name               = "scf-no-x-queue"
-  scf_wd_queue_name                 = "scf-wd-queue"
-  scf_no_row_tray_queue_name        = "scf-no-row-tray-queue"
-  scf_no_x_container_name           = "scf-no-x-container"
-  scf_no_row_tray_container_name    = "scf-no-row-tray-container"
-  scf_wd_container_name             = "scf-wd-container"
-  scf_no_row_tray_stage_table_name  = "scfnorowtraystagetable"
-  scf_no_row_tray_report_table_name = "scfnorowtrayreporttable"
+  service_name = "aic-processor-service"
+  microsoft_rsa_root_2017_pem = <<-EOT
+-----BEGIN CERTIFICATE-----
+MIIFqDCCA5CgAwIBAgIQHtOXCX95q3YKHD0uKsEafjANBgkqhkiG9w0BAQwFADBl
+MQswCQYDVQQGEwJVUzEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMTYw
+NAYDVQQDEy1NaWNyb3NvZnQgUlNBIFJvb3QgQ2VydGlmaWNhdGUgQXV0aG9yaXR5
+IDIwMTcwHhcNMTkxMjE4MjI1MTIyWhcNNDIwNzE4MjMwMDIzWjBlMQswCQYDVQQG
+EwJVUzEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMTYwNAYDVQQDEy1N
+aWNyb3NvZnQgUlNBIFJvb3QgQ2VydGlmaWNhdGUgQXV0aG9yaXR5IDIwMTcwggIi
+MA0GCSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQDKW765Q4wpqZEWCpW9R2LBiftJ
+Nt9GkMml7XhqkyfERLTEaLgfJYNGCpqFvuA+UDJ2gcQgVC8BAl11nEhAglMQvL/H
+O2iQtqQi5fZAWbAzbMjSXZ+7rCJqQs1WdMRZE4+ZdOPIBqo54WmD9GdO2GdxOQNH
+9DCHgIBaoBNWxZDRnK7rJ2bwlwpVmlA8J4iCwgMeqLdqCFOZIXRUIVjJWB4rJJ8l
+CnkJmxNdIJGRhOsj6XaGkYu4Qb0pFjzP+5oIWUxBm5VRWUXqL0WPUzE5gj3LJjjY
+1u9xt4r5nU5I9D4J4DqZpyX9nPYcBOhUdEsA4QXcb5bhQ7sHV3NJvQXqLrU6mGPJ
+qMqPHGYlPGFJcggAy0G5VYhJpQdSJCQ0HHOY2EEsX2yTRjfhWNj5mVYqYFJlhMX9
+8bKDIKEhDlrGVGZNhMPWkJDG3rJqbfCEaAhsFAOLYaZuJNIUZ6eX8zXJ1jfUEHGH
+5lh6CzlYE1OhCmF0zGBzKLKdEhF4LqAgtJOmvhYIe6cKRnWKqJRpF9NKgc7p5M9G
+r4KWBcP1C1q1HmvAzXzlJhUFfWGQZPnr1q2h0V7VW+LNTaE6XPbDJ6mRCCCKJHIc
+r4rCi8OsU5l+pPZhzLGP9LhaBXLnGNhIh5YaCZJCwXxPjUJJ0GNfDK6kBPSLsEEv
+M7gK+G3JTmtDRVl4wIDAQABo1QwUjAOBgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/
+BAUwAwEB/zAdBgNVHQ4EFgQUCcxZb4aycI8aw5D4pv+7TbIjMBAwCgYJKoBILxUB
+BAMCATANBgkqhkiG9w0BAQwFAAOCAgEAjKsecR5hKI6jcP+5fxU7PjHRKqalCOe4
+8H2Zb4Zm71ue3peTNrQ+W3e3lXMGm/CJ5e5JTsBDzDBvXSNjHl91EZCqPmvGCjQ2
+3Rnr/Nq/wTN7WJTgC3kO+UYsGF1oZDy+LJJ5gmdFXQaD3lGbwOKZLUg1gWdMDbF0
+1T7Lz7KEu3kJgZFWAmEQ2LT7Qmp0xFIYDtGZdYHbH3MdW5Vy7fGZ9rT7LfR6hZFC
+Oy0gB9/fT+q/9NeEK6TlG9MgOzQhkwEZPG5w/QJQ5FQD8FBL5SU5UYYBuPb7Q9k1
+kH0f1fEfJ3d4mT0m4vUnfKJcT9OJN1A+WLH5Lzn/5k5GZ5YmLiU1kWdJnYVlCJTz
+g4G8BmG/k+d7QOJFbPFKOmTKJYd1mB4JmXNMfk8XlKU1b5TJC4wSPq8aKNbNPIYS
+IOJ2r4FwJDOZNqYCDw0QKTtcwYIzD7g8Y5JDjNqVNfUqQPDa9g9UWgdFwg3qD1f1
+2P5W4hb5g9LW8aNmDBUhY4AcJdFmQoD8B5PZ2y0DH4m6DLB+/bP10eQMnFLFO5F2
+MpTNO7HAgS3XYJGGdGZeQV/4JHhJXqT1kJnJgR3eU6f3OfyeHqzHKQPNiJHjG9kn
+RGGM5KkxENKe8kM6THEWx/T1JZkgxTDMXb1y8zlHe1rZzFPfJnRCJ7aTNOZJFKj1
+g1M4J3JyJsQ=
+-----END CERTIFICATE-----
+EOT
+
+  # Combine both PEM certificates
+  mysql_ca_cert_content = "${data.http.digicert_global_root_g2.response_body}${local.microsoft_rsa_root_2017_pem}"
 }
 
-data "azurerm_storage_queue" "fetch_item_queue" {
-  name                = local.fetch_item_queue_name
-  storage_account_name = data.azurerm_storage_account.existing.name
+data "terraform_remote_state" "shared" {
+  backend = "azurerm"
+  config  = {
+    resource_group_name: var.tf_shared_resource_group_name
+    storage_account_name: var.tf_shared_storage_account_name
+    container_name: var.tf_shared_container_name
+    key: var.tf_shared_key
+  }
 }
 
-data "azurerm_storage_queue" "scf_no_x_queue" {
-  name                 = local.scf_no_x_queue_name
-  storage_account_name = data.azurerm_storage_account.existing.name
+data "azurerm_service_plan" "existing" {
+  name                = data.terraform_remote_state.shared.outputs.app_service_plan_name
+  resource_group_name = data.terraform_remote_state.shared.outputs.app_service_plan_resource_group
 }
 
-data "azurerm_storage_queue" "scf_no_row_tray_queue" {
-  name                 = local.scf_no_row_tray_queue_name
-  storage_account_name = data.azurerm_storage_account.existing.name
+data "azurerm_resource_group" "existing" {
+  name = data.terraform_remote_state.shared.outputs.resource_group_name
 }
 
-data "azurerm_storage_queue" "scf_wd_queue" {
-  name                 = local.scf_wd_queue_name
-  storage_account_name = data.azurerm_storage_account.existing.name
+data "azurerm_storage_account" "existing" {
+  name                     = data.terraform_remote_state.shared.outputs.storage_account_name
+  resource_group_name      = data.terraform_remote_state.shared.outputs.resource_group_name
 }
 
-data "azurerm_storage_container" "scf_no_x_container" {
-  name               = local.scf_no_x_container_name
-  storage_account_id = data.azurerm_storage_account.existing.id
-}
-
-data "azurerm_storage_container" "scf_no_row_tray_container" {
-  name               = local.scf_no_row_tray_container_name
-  storage_account_id = data.azurerm_storage_account.existing.id
-}
-
-data "azurerm_storage_container" "scf_wd_container" {
-  name               = local.scf_wd_container_name
-  storage_account_id = data.azurerm_storage_account.existing.id
-}
-
-data "azurerm_storage_table" "scf_no_row_tray_stage_table" {
-  name                 = local.scf_no_row_tray_stage_table_name
-  storage_account_name = data.azurerm_storage_account.existing.name
-}
-
-data "azurerm_storage_table" "scf_no_row_tray_report_table" {
-  name                 = local.scf_no_row_tray_report_table_name
-  storage_account_name = data.azurerm_storage_account.existing.name
-}
-
-data "azurerm_log_analytics_workspace" "existing" {
-  name                = var.log_analytics_workspace_name
-  resource_group_name = var.law_resource_group_name
+locals {
+  storage_queues     = data.terraform_remote_state.shared.outputs.storage_queues
+  storage_containers = data.terraform_remote_state.shared.outputs.storage_containers
+  storage_tables     = data.terraform_remote_state.shared.outputs.storage_tables
 }
 
 data "azurerm_mysql_flexible_server" "existing" {
-  name                = var.mysql_server_name
-  resource_group_name = var.mysql_server_resource_group_name
+  name                = data.terraform_remote_state.shared.outputs.mysql_server_name
+  resource_group_name = data.terraform_remote_state.shared.outputs.mysql_server_resource_group_name
+}
+
+data "azurerm_log_analytics_workspace" "existing" {
+  name                = data.terraform_remote_state.shared.outputs.log_analytics_workspace_name
+  resource_group_name = data.terraform_remote_state.shared.outputs.log_analytics_workspace_resource_group_name
 }
 
 resource "azurerm_application_insights" "main" {
-  name                = var.service_name
-  resource_group_name = data.azurerm_resource_group.project_rg_shared.name
-  location            = data.azurerm_resource_group.project_rg_shared.location
+  name                = local.service_name
+  resource_group_name = data.azurerm_resource_group.existing.name
+  location            = data.azurerm_resource_group.existing.location
   application_type    = "web"
   workspace_id        = data.azurerm_log_analytics_workspace.existing.id
 }
 
 # Create production MySQL database
 resource "azurerm_mysql_flexible_database" "prod" {
-  name                = var.service_name
+  name                = local.service_name
   resource_group_name = data.azurerm_mysql_flexible_server.existing.resource_group_name
   server_name         = data.azurerm_mysql_flexible_server.existing.name
   charset             = "utf8mb4"
@@ -98,7 +104,7 @@ resource "azurerm_mysql_flexible_database" "prod" {
 
 # Create staging MySQL database
 resource "azurerm_mysql_flexible_database" "stage" {
-  name                = "${var.service_name}-stage"
+  name                = "${local.service_name}-stage"
   resource_group_name = data.azurerm_mysql_flexible_server.existing.resource_group_name
   server_name         = data.azurerm_mysql_flexible_server.existing.name
   charset             = "utf8mb4"
@@ -108,24 +114,24 @@ resource "azurerm_mysql_flexible_database" "stage" {
 # Generate random passwords for database users
 resource "random_password" "prod_db_password" {
   length  = 32
-  special = true
+  special = false
 }
 
 resource "random_password" "stage_db_password" {
   length  = 32
-  special = true
+  special = false
 }
 
 # Create MySQL user for production with read access
 resource "mysql_user" "prod_user" {
-  user               = "${var.service_name}_user"
+  user               = "${local.service_name}_user"
   host               = "%"
   plaintext_password = random_password.prod_db_password.result
 }
 
 # Create MySQL user for staging with read access
 resource "mysql_user" "stage_user" {
-  user               = "${var.service_name}_stage_user"
+  user               = "${local.service_name}_stage_user"
   host               = "%"
   plaintext_password = random_password.stage_db_password.result
 }
@@ -148,9 +154,9 @@ resource "mysql_grant" "stage_grant" {
 
 
 resource "azurerm_linux_function_app" "function_app" {
-  name                       = var.service_name
-  resource_group_name        = data.azurerm_resource_group.project_rg_shared.name
-  location                   = data.azurerm_resource_group.project_rg_shared.location
+  name                       = local.service_name
+  resource_group_name        = data.azurerm_resource_group.existing.name
+  location                   = data.azurerm_resource_group.existing.location
   service_plan_id            = data.azurerm_service_plan.existing.id
   storage_account_name       = data.azurerm_storage_account.existing.name
   storage_account_access_key = data.azurerm_storage_account.existing.primary_access_key
@@ -158,7 +164,7 @@ resource "azurerm_linux_function_app" "function_app" {
   site_config {
     always_on        = true
     application_insights_connection_string = azurerm_application_insights.main.connection_string
-    application_insights_key = azurerm_application_insights.main.instrumentation_key
+    application_insights_key               = azurerm_application_insights.main.instrumentation_key
     application_stack {
       python_version = "3.12"
     }
@@ -167,16 +173,17 @@ resource "azurerm_linux_function_app" "function_app" {
 
   app_settings = {
     "WEBSITE_RUN_FROM_PACKAGE"     = "1"
-    "FETCH_ITEM_QUEUE"             = data.azurerm_storage_queue.fetch_item_queue.name
-    "SCF_NO_X_QUEUE"               = data.azurerm_storage_queue.scf_no_x_queue.name
-    "SCF_NO_ROW_TRAY_QUEUE"        = data.azurerm_storage_queue.scf_no_row_tray_queue.name
-    "SCF_WD_QUEUE"                 = data.azurerm_storage_queue.scf_wd_queue.name
-    "SCF_NO_X_CONTAINER"           = data.azurerm_storage_container.scf_no_x_container.name
-    "SCF_WD_CONTAINER"             = data.azurerm_storage_container.scf_wd_container.name
-    "SCF_NO_ROW_TRAY_CONTAINER"    = data.azurerm_storage_container.scf_no_row_tray_container.name
-    "SCF_NO_ROW_TRAY_STAGE_TABLE"  = data.azurerm_storage_table.scf_no_row_tray_stage_table.name
-    "SCF_NO_ROW_TRAY_REPORT_TABLE" = data.azurerm_storage_table.scf_no_row_tray_report_table.name
+    "MYSQL_SSL_CA_CONTENT"         = local.mysql_ca_cert_content
     "SQLALCHEMY_CONNECTION_STRING" = "mysql+pymysql://${mysql_user.prod_user.user}:${random_password.prod_db_password.result}@${data.azurerm_mysql_flexible_server.existing.fqdn}:3306/${azurerm_mysql_flexible_database.prod.name}?charset=utf8mb4&ssl_disabled=false&ssl_verify_cert=true"
+    "FETCH_ITEM_QUEUE"             = local.storage_queues["fetch-queue"]
+    "SCF_NO_X_QUEUE"               = local.storage_queues["scf-no-x-queue"]
+    "SCF_NO_ROW_TRAY_QUEUE"        = local.storage_queues["scf-no-row-tray-queue"]
+    "SCF_WD_QUEUE"                 = local.storage_queues["scf-wd-queue"]
+    "SCF_NO_X_CONTAINER"           = local.storage_containers["scf-no-x-container"]
+    "SCF_NO_ROW_TRAY_CONTAINER"    = local.storage_containers["scf-no-row-tray-container"]
+    "SCF_WD_CONTAINER"             = local.storage_containers["scf-wd-container"]
+    "SCF_NO_ROW_TRAY_STAGE_TABLE"  = local.storage_tables["scfnorowtraystagetable"]
+    "SCF_NO_ROW_TRAY_REPORT_TABLE" = local.storage_tables["scfnorowtrayreporttable"]
   }
 
   sticky_settings {
@@ -202,25 +209,26 @@ resource "azurerm_linux_function_app_slot" "staging_slot" {
   storage_account_access_key = data.azurerm_storage_account.existing.primary_access_key
 
   site_config {
-    always_on        = true
+    always_on                              = true
     application_insights_connection_string = azurerm_application_insights.main.connection_string
-    application_insights_key = azurerm_application_insights.main.instrumentation_key
+    application_insights_key               = azurerm_application_insights.main.instrumentation_key
     application_stack {
-      python_version = "3.12"
+      python_version                       = "3.12"
     }
   }
 
   app_settings = {
     "WEBSITE_RUN_FROM_PACKAGE"     = "1"
-    "FETCH_ITEM_QUEUE"             = "${data.azurerm_storage_queue.fetch_item_queue.name}-stage"
-    "SCF_NO_X_QUEUE"               = "${data.azurerm_storage_queue.scf_no_x_queue.name}-stage"
-    "SCF_NO_ROW_TRAY_QUEUE"        = "${data.azurerm_storage_queue.scf_no_row_tray_queue.name}-stage"
-    "SCF_WD_QUEUE"                 = "${data.azurerm_storage_queue.scf_wd_queue.name}-stage"
-    "SCF_NO_X_CONTAINER"           = "${data.azurerm_storage_container.scf_no_x_container.name}-stage"
-    "SCF_NO_ROW_TRAY_CONTAINER"    = "${data.azurerm_storage_container.scf_no_row_tray_container.name}-stage"
-    "SCF_WD_CONTAINER"             = "${data.azurerm_storage_container.scf_wd_container.name}-stage"
-    "SCF_NO_ROW_TRAY_STAGE_TABLE"  = "${data.azurerm_storage_table.scf_no_row_tray_stage_table.name}-stage"
-    "SCF_NO_ROW_TRAY_REPORT_TABLE" = "${data.azurerm_storage_table.scf_no_row_tray_report_table.name}-stage"
+    "MYSQL_SSL_CA_CONTENT"         = local.mysql_ca_cert_content
     "SQLALCHEMY_CONNECTION_STRING" = "mysql+pymysql://${mysql_user.stage_user.user}:${random_password.stage_db_password.result}@${data.azurerm_mysql_flexible_server.existing.fqdn}:3306/${azurerm_mysql_flexible_database.stage.name}?charset=utf8mb4&ssl_disabled=false&ssl_verify_cert=true"
+    "FETCH_ITEM_QUEUE"             = local.storage_queues["fetch-queue-stage"]
+    "SCF_NO_X_QUEUE"               = local.storage_queues["scf-no-x-queue-stage"]
+    "SCF_NO_ROW_TRAY_QUEUE"        = local.storage_queues["scf-no-row-tray-queue-stage"]
+    "SCF_WD_QUEUE"                 = local.storage_queues["scf-wd-queue-stage"]
+    "SCF_NO_X_CONTAINER"           = local.storage_containers["scf-no-x-container-stage"]
+    "SCF_NO_ROW_TRAY_CONTAINER"    = local.storage_containers["scf-no-row-tray-container"]
+    "SCF_WD_CONTAINER"             = local.storage_containers["scf-wd-container-stage"]
+    "SCF_NO_ROW_TRAY_STAGE_TABLE"  = local.storage_tables["scfnorowtraystagetablestage"]
+    "SCF_NO_ROW_TRAY_REPORT_TABLE" = local.storage_tables["scfnorowtrayreporttablestage"]
   }
 }

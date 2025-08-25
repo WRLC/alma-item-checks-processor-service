@@ -17,10 +17,12 @@ terraform {
 
 provider "azurerm" {
   features {}
+  use_oidc = true
 }
 
 provider "mysql" {
   endpoint = data.azurerm_mysql_flexible_server.existing.fqdn
   username = var.mysql_admin_username
   password = var.mysql_admin_password
+  tls = "true"
 }
