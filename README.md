@@ -1,6 +1,6 @@
 # Alma Item Checks Processor Service
 
-Processor service for WRLC'a Alma Item Checks application
+Processor service for WRLC's Alma Item Checks application
 
 Processes item data from the Ex Libris Alma library management system, using event-driven architecture to retrieve item data by barcode and perform various data integrity checks and correct data errors where possible. Results are stored for further action by downstream services, including Alma API item updates and staff email notifications.
 ## Key Dependencies
