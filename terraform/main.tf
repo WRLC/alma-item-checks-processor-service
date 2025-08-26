@@ -176,28 +176,26 @@ resource "azurerm_linux_function_app" "function_app" {
     "MYSQL_SSL_CA_CONTENT"         = local.mysql_ca_cert_content
     "SQLALCHEMY_CONNECTION_STRING" = "mysql+pymysql://${mysql_user.prod_user.user}:${random_password.prod_db_password.result}@${data.azurerm_mysql_flexible_server.existing.fqdn}:3306/${azurerm_mysql_flexible_database.prod.name}?charset=utf8mb4&ssl_disabled=false&ssl_verify_cert=true"
     "FETCH_ITEM_QUEUE"             = local.storage_queues["fetch-queue"]
-    "SCF_NO_X_QUEUE"               = local.storage_queues["scf-no-x-queue"]
-    "SCF_NO_ROW_TRAY_QUEUE"        = local.storage_queues["scf-no-row-tray-queue"]
-    "SCF_WD_QUEUE"                 = local.storage_queues["scf-wd-queue"]
-    "SCF_NO_X_CONTAINER"           = local.storage_containers["scf-no-x-container"]
-    "SCF_NO_ROW_TRAY_CONTAINER"    = local.storage_containers["scf-no-row-tray-container"]
-    "SCF_WD_CONTAINER"             = local.storage_containers["scf-wd-container"]
+    "UPDATE_QUEUE"                 = local.storage_queues["update-queue"]
+    "NOTIFICATION_QUEUE"           = local.storage_queues["notification-queue"]
+    "UPDATED_ITEMS_CONTAINER"      = local.storage_containers["updated-items-container"]
+    "REPORTS_CONTAINER"            = local.storage_containers["reports-container"]
     "SCF_NO_ROW_TRAY_STAGE_TABLE"  = local.storage_tables["scfnorowtraystagetable"]
     "SCF_NO_ROW_TRAY_REPORT_TABLE" = local.storage_tables["scfnorowtrayreporttable"]
+    "IZ_NO_ROW_TRAY_STAGE_TABLE"   = local.storage_tables["iznorowtraystagetable"]
   }
 
   sticky_settings {
     app_setting_names = [
+      "SQLALCHEMY_CONNECTION_STRING",
       "FETCH_ITEM_QUEUE",
-      "SCF_NO_X_QUEUE",
-      "SCF_NO_ROW_TRAY_QUEUE",
-      "SCF_WD_QUEUE",
-      "SCF_NO_X_CONTAINER",
-      "SCF_WD_CONTAINER",
-      "SCF_NO_ROW_TRAY_CONTAINER",
+      "UPDATE_QUEUE",
+      "NOTIFICATION_QUEUE",
+      "UPDATED_ITEMS_CONTAINER",
+      "REPORTS_CONTAINER",
       "SCF_NO_ROW_TRAY_STAGE_TABLE",
       "SCF_NO_ROW_TRAY_REPORT_TABLE",
-      "SQLALCHEMY_CONNECTION_STRING"
+      "IZ_NO_ROW_TRAY_STAGE_TABLE"
     ]
   }
 }
@@ -222,13 +220,12 @@ resource "azurerm_linux_function_app_slot" "staging_slot" {
     "MYSQL_SSL_CA_CONTENT"         = local.mysql_ca_cert_content
     "SQLALCHEMY_CONNECTION_STRING" = "mysql+pymysql://${mysql_user.stage_user.user}:${random_password.stage_db_password.result}@${data.azurerm_mysql_flexible_server.existing.fqdn}:3306/${azurerm_mysql_flexible_database.stage.name}?charset=utf8mb4&ssl_disabled=false&ssl_verify_cert=true"
     "FETCH_ITEM_QUEUE"             = local.storage_queues["fetch-queue-stage"]
-    "SCF_NO_X_QUEUE"               = local.storage_queues["scf-no-x-queue-stage"]
-    "SCF_NO_ROW_TRAY_QUEUE"        = local.storage_queues["scf-no-row-tray-queue-stage"]
-    "SCF_WD_QUEUE"                 = local.storage_queues["scf-wd-queue-stage"]
-    "SCF_NO_X_CONTAINER"           = local.storage_containers["scf-no-x-container-stage"]
-    "SCF_NO_ROW_TRAY_CONTAINER"    = local.storage_containers["scf-no-row-tray-container"]
-    "SCF_WD_CONTAINER"             = local.storage_containers["scf-wd-container-stage"]
+    "UPDATE_QUEUE"                 = local.storage_queues["update-queue-stage"]
+    "NOTIFICATION_QUEUE"           = local.storage_queues["notification-queue-stage"]
+    "UPDATED_ITEMS_CONTAINER"      = local.storage_containers["updated-items-container-stage"]
+    "REPORTS_CONTAINER"            = local.storage_containers["reports-container-stage"]
     "SCF_NO_ROW_TRAY_STAGE_TABLE"  = local.storage_tables["scfnorowtraystagetablestage"]
     "SCF_NO_ROW_TRAY_REPORT_TABLE" = local.storage_tables["scfnorowtrayreporttablestage"]
+    "IZ_NO_ROW_TRAY_STAGE_TABLE"   = local.storage_tables["iznorowtraystagetablestage"]
   }
 }

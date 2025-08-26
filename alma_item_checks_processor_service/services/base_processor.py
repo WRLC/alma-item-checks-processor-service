@@ -1,14 +1,19 @@
 """Base class for all item processors"""
 import logging
 import re
+import time
 from abc import ABC
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from wrlc_alma_api_client.models import Item
+from wrlc_alma_api_client import AlmaApiClient
+from wrlc_alma_api_client.exceptions import AlmaApiError
+from requests import RequestException
 
-from alma_item_checks_processor_service.config import SKIP_LOCATIONS
+from alma_item_checks_processor_service.config import SKIP_LOCATIONS, API_CLIENT_TIMEOUT
+from alma_item_checks_processor_service.models import Institution
 
 
 class BaseItemProcessor(ABC):
@@ -87,3 +92,53 @@ class BaseItemProcessor(ABC):
         job_id = f"{iz}_{process_name}_{timestamp}_{unique_id}"
 
         return job_id
+
+    @staticmethod
+    def retrieve_item_by_barcode(institution: Institution, barcode: str, max_retries: int = 3) -> Item | None:
+        """Retrieve item from Alma API by barcode
+
+        Args:
+            institution (Institution): The institution instance
+            barcode (str): The barcode
+            max_retries (int): The maximum number of retries
+
+        Returns:
+            Item | None: The item if found, None otherwise
+        """
+        alma_client: AlmaApiClient = AlmaApiClient(
+            api_key=str(institution.api_key),
+            region='NA',
+            timeout=API_CLIENT_TIMEOUT
+        )
+
+        item_data: Item | None = None
+
+        for attempt in range(max_retries):
+            try:
+                item_data = alma_client.items.get_item_by_barcode(barcode=barcode)
+                break  # Success, exit the loop
+            except RequestException as e:  # Catches timeouts, connection errors, etc.
+                logging.warning(
+                    f"Attempt {attempt + 1}/{max_retries} to get item {barcode} "
+                    f"failed with a network error: {e}"
+                )
+                if attempt < max_retries - 1:  # If there are retries left, wait and retry
+                    time.sleep(2 * (attempt + 1))  # Wait 2, then 4 seconds before retrying
+                else:
+                    logging.error(
+                        f"All {max_retries} retry attempts failed for barcode {barcode}. "
+                        f"Skipping processing."
+                    )
+                    return None
+            except AlmaApiError as e:  # If non-retriable API error (e.g., 404 Not Found), log and return nothing
+                logging.warning(f"Error retrieving item {barcode} from Alma, skipping processing: {e}")
+                return None
+
+        if not item_data:
+            logging.info(
+                f"BaseItemProcessor.retrieve_item_by_barcode: Item {barcode} not active in Alma, "
+                "skipping further processing"
+            )
+            return None
+
+        return item_data

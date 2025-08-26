@@ -7,16 +7,15 @@ STORAGE_CONNECTION_STRING = os.getenv(STORAGE_CONNECTION_SETTING_NAME)
 SQLALCHEMY_CONNECTION_STRING = os.getenv("SQLALCHEMY_CONNECTION_STRING")
 
 FETCH_ITEM_QUEUE = os.getenv("FETCH_QUEUE", "fetch-item-queue")
-SCF_NO_X_QUEUE = os.getenv("SCF_NO_X_QUEUE", "scf-no-x-queue")
-SCF_NO_ROW_TRAY_QUEUE = os.getenv("SCF_NO_ROW_TRAY_QUEUE", "scf-no-row-tray-queue")
-SCF_WD_QUEUE = os.getenv("SCF_WD_QUEUE", "scf-wd-queue")
+UPDATE_QUEUE = os.getenv("UPDATE_QUEUE", "update-queue")  # For items that need Alma updates
+NOTIFICATION_QUEUE = os.getenv("NOTIFICATION_QUEUE", "notification-queue")  # For staff notifications
 
-SCF_NO_X_CONTAINER = os.getenv("SCF_NO_X_CONTAINER", "scf-no-x-container")
-SCF_NO_ROW_TRAY_CONTAINER = os.getenv("SCF_NO_ROW_TRAY_CONTAINER", "scf-no-row-tray-container")
-SCF_WD_CONTAINER = os.getenv("SCF_WD_CONTAINER", "scf-wd-container")
+UPDATED_ITEMS_CONTAINER = os.getenv("UPDATED_ITEMS_CONTAINER", "updated-items-container")  # All updated item data
+REPORTS_CONTAINER = os.getenv("REPORTS_CONTAINER", "reports-container")  # Generated reports
 
 SCF_NO_ROW_TRAY_STAGE_TABLE = os.getenv("SCF_NO_ROW_TRAY_STAGE_TABLE", "scfnorowtraystagetable")
 SCF_NO_ROW_TRAY_REPORT_TABLE = os.getenv("SCF_NO_ROW_TRAY_REPORT_TABLE", "scfnorowtrayreporttable")
+IZ_NO_ROW_TRAY_STAGE_TABLE = os.getenv("IZ_NO_ROW_TRAY_STAGE_TABLE", "iznorowtraystagetable")
 
 API_CLIENT_TIMEOUT = int(os.getenv("API_CLIENT_TIMEOUT", 90))
 
