@@ -14,6 +14,7 @@ class Institution(Base):
     name = Column(String(255), nullable=False)
     code = Column(String(20), nullable=False, unique=True)
     api_key = Column(String(255), nullable=False, unique=True)
+    duplicate_report_path = Column(String(255), nullable=True)
 
     def __repr__(self):
         return f"<Institution(name='{self.name}', code='{self.code}')>"
