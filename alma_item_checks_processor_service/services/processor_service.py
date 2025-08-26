@@ -1,18 +1,13 @@
 """Service to handle barcode events"""
 import json
 import logging
-import time
 from typing import Any
 
 import azure.functions as func
-from requests import RequestException
-from wrlc_alma_api_client import AlmaApiClient  # type: ignore
-from wrlc_alma_api_client.exceptions import AlmaApiError  # type: ignore
 from wrlc_alma_api_client.models import Item  # type: ignore
-
-from alma_item_checks_processor_service.config import API_CLIENT_TIMEOUT
 from alma_item_checks_processor_service.database import SessionMaker
 from alma_item_checks_processor_service.models import Institution
+from alma_item_checks_processor_service.services.base_processor import BaseItemProcessor
 from alma_item_checks_processor_service.services.institution_service import InstitutionService
 from alma_item_checks_processor_service.services.iz_item_processor import IZItemProcessor
 from alma_item_checks_processor_service.services.scf_item_processor import SCFItemProcessor
@@ -47,12 +42,11 @@ class ProcessorService:
         if not inst:  # if no institution or barcode, return nothing
             return None
 
-        item: Item | None = self.retrieve_item(inst, barcode_retrieval_data.get("barcode"))  # get item data from Alma
+        item: Item | None = BaseItemProcessor.retrieve_item_by_barcode(inst, barcode_retrieval_data.get("barcode"))
 
         parsed_item: dict[str, Any] | None = {
             "institution_code": inst.code,
-            "item_data": item,
-            "process": barcode_retrieval_data.get("process"),
+            "item_data": item
         }
 
         return parsed_item
@@ -117,7 +111,6 @@ class ProcessorService:
         barcode_retrieval_data: dict[str, Any] = {  # create dict for API call
             "institution_code": institution_code,  # institution code
             "barcode": barcode,  # barcode
-            "process": process  # process
         }
 
         return barcode_retrieval_data
@@ -136,52 +129,3 @@ class ProcessorService:
             institution: Institution | None = institution_service.get_institution_by_code(code=code)  # get institution
 
         return institution
-
-    def retrieve_item(self, inst: Institution, barcode: str, max_retries: int = 3) -> Item | None:
-        """Retrieve item from Alma API
-
-        Args:
-            inst (Institution): The institution instance
-            barcode (str): The barcode
-            max_retries (int): The maximum number of retries
-
-        Returns:
-            Item | None: The item if found, None otherwise
-        """
-        alma_client: AlmaApiClient = AlmaApiClient(  # initialize Alma API client
-            api_key=str(inst.api_key),  # API key
-            region='NA',  # Alma region
-            timeout=API_CLIENT_TIMEOUT  # HTTP request timeout time
-        )
-
-        item_data: Item | None = None  # initialize empty Item object
-
-        for attempt in range(max_retries):  # iterate through retries
-            try:
-                item_data: Item | None = alma_client.items.get_item_by_barcode(barcode=barcode)  # Get item from Alma
-                break  # Success, exit the loop
-            except RequestException as e:  # Catches timeouts, connection errors, etc.
-                logging.warning(
-                    f"Attempt {attempt + 1}/{max_retries} to get item {barcode} "
-                    f"failed with a network error: {e}"
-                )
-                if attempt < max_retries - 1:  # If there are retries left, wait and retry
-                    time.sleep(2 * (attempt + 1))  # Wait 2, then 4 seconds before retrying
-                else:
-                    logging.error(  # If no data after all retries log error and return nothing
-                        f"All {max_retries} retry attempts failed for barcode {barcode}. "
-                        f"Skipping processing."
-                    )
-                    return None
-            except AlmaApiError as e:  # If non-retriable API error (e.g., 404 Not Found), log and return nothing
-                logging.warning(f"Error retrieving item {barcode} from Alma, skipping processing: {e}")
-                return None
-
-        if not item_data:  # If there's no item data, log and return nothing
-            logging.info(
-                f"ProcessorService.retrieve_item: Item {barcode} not active in Alma, "
-                "skipping further processing"
-            )
-            return None
-
-        return item_data

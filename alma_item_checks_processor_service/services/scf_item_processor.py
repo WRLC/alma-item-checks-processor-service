@@ -1,6 +1,7 @@
 """SCF item processor service"""
 import json
 import logging
+from typing import Any
 
 import azure.core.exceptions
 from wrlc_alma_api_client.models import Item
@@ -8,14 +9,17 @@ from wrlc_alma_api_client.models import Item
 from alma_item_checks_processor_service.services.base_processor import BaseItemProcessor
 from wrlc_azure_storage_service import StorageService
 
+from alma_item_checks_processor_service.database import SessionMaker
+from alma_item_checks_processor_service.services.institution_service import InstitutionService
+from alma_item_checks_processor_service.models import Institution
 from alma_item_checks_processor_service.config import (
     EXCLUDED_NOTES,
     PROVENANCE,
     SCF_NO_ROW_TRAY_STAGE_TABLE,
-    SCF_NO_X_CONTAINER,
-    SCF_NO_X_QUEUE,
-    SCF_WD_CONTAINER,
-    SCF_WD_QUEUE,
+    SCF_NO_ROW_TRAY_REPORT_TABLE,
+    UPDATE_QUEUE,
+    NOTIFICATION_QUEUE,
+    UPDATED_ITEMS_CONTAINER,
 )
 
 
@@ -106,28 +110,48 @@ class SCFItemProcessor(BaseItemProcessor):
         """Process SCF item with missing X in barcode
         """
         item: Item = self.parsed_item.get("item_data")
-        barcode: str = item.item_data.barcode  # get barcode value
-        item.item_data.barcode = barcode + "X"  # append X to barcode
+        original_barcode: str = item.item_data.barcode
+        item.item_data.barcode = original_barcode + "X"  # append X to barcode
 
-        job_id = self.generate_job_id("scf_no_x")
+        job_id: str = self.generate_job_id("scf_no_x")
+        institution_code: str = self.parsed_item.get("institution_code")
 
-        storage_service: StorageService = StorageService()  # initialize storage service
+        # Get institution ID for queue message
+        with SessionMaker() as db:
+            institution_service: InstitutionService = InstitutionService(db)
+            institution: Institution = institution_service.get_institution_by_code(institution_code)
 
-        try:
-            storage_service.upload_blob_data(  # upload item data dict blob
-                container_name=SCF_NO_X_CONTAINER,  # container
-                blob_name=job_id + ".json",  # blob name
-                data=json.dumps(item).encode()  # data
-            )
-        except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError):
+        if not institution:
+            logging.error(f"SCFItemProcessor.no_x_process: Institution {institution_code} not found")
             return
 
+        storage_service: StorageService = StorageService()
+
+        # Store updated item data in unified container
         try:
-            storage_service.send_queue_message(  # send claim ticket
-                queue_name=SCF_NO_X_QUEUE,  # queue
-                message_content={"job_id": job_id}  # message
+            storage_service.upload_blob_data(
+                container_name=UPDATED_ITEMS_CONTAINER,
+                blob_name=f"{job_id}.json",
+                data=json.dumps(item.__dict__ if hasattr(item, '__dict__') else str(item)).encode()
             )
-        except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError):
+        except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError) as e:
+            logging.error(f"SCFItemProcessor.no_x_process: Failed to upload item data: {e}")
+            return
+
+        # Queue item for update service
+        update_message: dict[str, Any] = {
+            "job_id": job_id,
+            "institution_id": institution.id,
+            "process_type": "scf_no_x"
+        }
+
+        try:
+            storage_service.send_queue_message(
+                queue_name=UPDATE_QUEUE,
+                message_content=update_message
+            )
+        except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError) as e:
+            logging.error(f"SCFItemProcessor.no_x_process: Failed to queue update message: {e}")
             return
 
     def no_row_tray_should_process(self) -> bool:
@@ -171,6 +195,57 @@ class SCFItemProcessor(BaseItemProcessor):
             entity=entity  # barcode entity
         )
 
+    def no_row_tray_report_process(self) -> bool:
+        """Process SCF no row tray data by storing updated item and adding to report table"""
+        item: Item = self.parsed_item.get('item_data')
+        barcode: str = item.item_data.barcode
+        institution_code: str = self.parsed_item.get("institution_code")
+        job_id = self.generate_job_id("scf_no_row_tray_report")
+
+        # Get institution ID for report table
+        with SessionMaker() as db:
+            institution_service: InstitutionService = InstitutionService(db)
+            institution: Institution = institution_service.get_institution_by_code(institution_code)
+
+        if not institution:
+            logging.error(f"SCFItemProcessor.no_row_tray_report_process: Institution {institution_code} not found")
+            return False
+
+        storage_service: StorageService = StorageService()
+
+        # Store item data in unified container
+        try:
+            storage_service.upload_blob_data(
+                container_name=UPDATED_ITEMS_CONTAINER,
+                blob_name=f"{job_id}.json",
+                data=json.dumps(item.__dict__ if hasattr(item, '__dict__') else str(item)).encode()
+            )
+        except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError) as e:
+            logging.error(f"SCFItemProcessor.no_row_tray_report_process: Failed to upload item data: {e}")
+            return False
+
+        # Add to report table for compilation by separate service
+        report_entity: dict[str, str] = {
+            "PartitionKey": "scf_no_row_tray_report",
+            "RowKey": job_id,
+            "institution_id": str(institution.id),
+            "job_id": job_id
+        }
+
+        try:
+            storage_service.upsert_entity(
+                table_name=SCF_NO_ROW_TRAY_REPORT_TABLE,
+                entity=report_entity
+            )
+        except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError) as e:
+            logging.error(f"SCFItemProcessor.no_row_tray_report_process: Failed to add to report table: {e}")
+            return False
+
+        logging.info(
+            f"SCFItemProcessor.no_row_tray_report_process: Successfully processed item {barcode} for reporting"
+        )
+        return True
+
     def withdrawn_should_process(self) -> bool:
         """Check if item has withdrawal data
 
@@ -193,23 +268,42 @@ class SCFItemProcessor(BaseItemProcessor):
     def withdrawn_process(self) -> None:
         """Process SCF item with withdrawal data"""
         item: Item = self.parsed_item.get("item_data")
-        job_id = self.generate_job_id("scf_withdrawn")
+        job_id: str = self.generate_job_id("scf_withdrawn")
+        institution_code: str = self.parsed_item.get("institution_code")
+
+        # Get institution ID for queue message
+        with SessionMaker() as db:
+            institution_service: InstitutionService = InstitutionService(db)
+            institution: Institution = institution_service.get_institution_by_code(institution_code)
+
+        if not institution:
+            logging.error(f"SCFItemProcessor.withdrawn_process: Institution {institution_code} not found")
+            return
 
         storage_service: StorageService = StorageService()
 
+        # Store withdrawal data in unified container (same format as updated items)
         try:
             storage_service.upload_blob_data(
-                container_name=SCF_WD_CONTAINER,
-                blob_name=job_id + ".json",
-                data=json.dumps(item).encode()
+                container_name=UPDATED_ITEMS_CONTAINER,
+                blob_name=f"{job_id}.json",
+                data=json.dumps(item.__dict__ if hasattr(item, '__dict__') else str(item)).encode()
             )
-        except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError):
+        except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError) as e:
+            logging.error(f"SCFItemProcessor.withdrawn_process: Failed to upload withdrawal data: {e}")
             return
+
+        # Queue notification for withdrawal (no update needed)
+        notification_message: dict[str, Any] = {
+            "job_id": job_id,
+            "institution_id": institution.id,
+            "process_type": "scf_withdrawn"
+        }
 
         try:
             storage_service.send_queue_message(
-                queue_name=SCF_WD_QUEUE,
-                message_content={"job_id": job_id}
+                queue_name=NOTIFICATION_QUEUE,
+                message_content=notification_message
             )
-        except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError):
-            return
+        except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError) as e:
+            logging.error(f"SCFItemProcessor.withdrawn_process: Failed to queue notification: {e}")

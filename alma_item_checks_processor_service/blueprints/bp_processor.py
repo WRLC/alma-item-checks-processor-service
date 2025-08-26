@@ -23,7 +23,6 @@ def process_item_data(barcodemsg: func.QueueMessage) -> None:
         {
             "institution": Institution object,
             "barcode": barcode string,
-            "process": process string,
         }
 
     Args:
