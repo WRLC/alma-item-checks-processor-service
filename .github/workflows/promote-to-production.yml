@@ -82,4 +82,36 @@ jobs:
           --slot "stage" \
           --target-slot "production"
 
+    - name: Run production database migrations
+      run: |
+        echo "Fetching database connection string from production slot..."
+        echo "Using resource group: ${{ env.RG_NAME }}"
+        echo "Function app name: ${{ env.FUNCTION_APP_NAME }}"
+
+        # Get production app settings (now populated after swap)
+        SETTINGS=$(az functionapp config appsettings list \
+          --name "${{ env.FUNCTION_APP_NAME }}" \
+          --resource-group "${{ env.RG_NAME }}" \
+          --output json)
+
+        CONNECTION_STRING=$(echo "$SETTINGS" | jq -r '.[] | select(.name=="SQLALCHEMY_CONNECTION_STRING") | .value')
+        SSL_CA_CONTENT=$(echo "$SETTINGS" | jq -r '.[] | select(.name=="MYSQL_SSL_CA_CONTENT") | .value')
+
+        if [[ -z "$CONNECTION_STRING" || "$CONNECTION_STRING" == "null" ]]; then
+          echo "::error::SQLALCHEMY_CONNECTION_STRING not found in production app settings"
+          exit 1
+        fi
+
+        if [[ -z "$SSL_CA_CONTENT" || "$SSL_CA_CONTENT" == "null" ]]; then
+          echo "::error::MYSQL_SSL_CA_CONTENT not found in production app settings"
+          exit 1
+        fi
+
+        echo "Running Alembic migrations on Production DB..."
+        export SQLALCHEMY_CONNECTION_STRING="$CONNECTION_STRING"
+        export MYSQL_SSL_CA_CONTENT="$SSL_CA_CONTENT"
+
+        # Run migration from the repo root where alembic.ini exists
+        poetry run python -m alembic -c alembic.ini upgrade head
+
         echo "✅ Successfully swapped stage -> production"
