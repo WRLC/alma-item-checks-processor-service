@@ -80,7 +80,7 @@ jobs:
         run: |
           APP_NAME=$(terraform output -raw function_app_name)
           RG_NAME=$(terraform output -raw function_app_resource_group_name)
-          
+
           echo "function_app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
           echo "function_app_resource_group_name=$RG_NAME" >> "$GITHUB_OUTPUT"
 
@@ -103,7 +103,7 @@ jobs:
         run: poetry config virtualenvs.in-project true
 
       - name: Configure private repository authentication
-        run: poetry config http-basic.TBC_Feed pat ${{ secrets.AZURE_DEVOPS_PAT }}
+        run: poetry config http-basic.wrlc-python pat ${{ secrets.AZURE_DEVOPS_PAT }}
 
       - name: Build with Poetry
         run: poetry install --without dev
@@ -161,33 +161,33 @@ jobs:
           echo "Fetching database connection string from stage slot..."
           FUNCTION_APP_NAME="${{ needs.terraform.outputs.function_app_name }}"
           RG_NAME="${{ needs.terraform.outputs.function_app_resource_group_name }}"
-          
+
           echo "Using resource group: $RG_NAME"
           echo "Function app name: $FUNCTION_APP_NAME"
-          
+
           SETTINGS=$(az functionapp config appsettings list \
             --name "$FUNCTION_APP_NAME" \
             --slot "stage" \
             --resource-group "$RG_NAME")
-            
+
           CONNECTION_STRING=$(echo "$SETTINGS" | jq -r '.[] | select(.name=="SQLALCHEMY_CONNECTION_STRING") | .value')
           SSL_CA_CONTENT=$(echo "$SETTINGS" | jq -r '.[] | select(.name=="MYSQL_SSL_CA_CONTENT") | .value')
-          
+
           if [[ -z "$CONNECTION_STRING" || "$CONNECTION_STRING" == "null" ]]; then
             echo "::error::SQLALCHEMY_CONNECTION_STRING not found in app settings"
             exit 1
           fi
-          
+
           if [[ -z "$SSL_CA_CONTENT" || "$SSL_CA_CONTENT" == "null" ]]; then
             echo "::error::MYSQL_SSL_CA_CONTENT not found in app settings"
             exit 1
           fi
-          
+
           echo "Running Alembic migrations on Stage DB..."
           export PYTHONPATH=$(pwd)/app/.python_packages/lib/site-packages
           export SQLALCHEMY_CONNECTION_STRING="$CONNECTION_STRING"
           export MYSQL_SSL_CA_CONTENT="$SSL_CA_CONTENT"
-          
+
           cd app
-      
+
           python -m alembic -c alembic.ini upgrade head
