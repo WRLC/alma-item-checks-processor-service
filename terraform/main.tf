@@ -141,7 +141,7 @@ resource "mysql_grant" "prod_grant" {
   user       = mysql_user.prod_user.user
   host       = mysql_user.prod_user.host
   database   = azurerm_mysql_flexible_database.prod.name
-  privileges = ["SELECT", "SHOW VIEW"]
+  privileges = ["SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "SHOW VIEW"]
 }
 
 # Grant read permissions to staging user
@@ -149,7 +149,7 @@ resource "mysql_grant" "stage_grant" {
   user       = mysql_user.stage_user.user
   host       = mysql_user.stage_user.host
   database   = azurerm_mysql_flexible_database.stage.name
-  privileges = ["SELECT", "SHOW VIEW"]
+  privileges = ["SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "SHOW VIEW"]
 }
 
 
