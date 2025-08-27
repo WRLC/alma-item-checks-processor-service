@@ -82,6 +82,12 @@ jobs:
           --slot "stage" \
           --target-slot "production"
 
+    - name: Configure private repository authentication
+      run: poetry config http-basic.TBC_Feed pat ${{ secrets.AZURE_DEVOPS_PAT }}
+
+    - name: Install Python dependencies for migration
+      run: poetry install --only=main
+
     - name: Run production database migrations
       run: |
         echo "Fetching database connection string from production slot..."
