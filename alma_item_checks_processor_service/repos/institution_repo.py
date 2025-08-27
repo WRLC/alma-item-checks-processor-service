@@ -34,3 +34,25 @@ class InstitutionRepository:
         except Exception as e:
             logging.error(f'InstitutionRepo.get_institution_by_code: Unexpected error: {e}')
             return None
+
+    def get_institution_by_id(self, institution_id: int) -> Institution | None:
+        """Get institution by id
+
+        Args:
+            institution_id (int): The id of the institution
+
+        Returns:
+            Institution: The institution object or None
+        """
+        stmt: Select = Select(Institution).where(Institution.id == institution_id)
+        try:
+            return self.session.execute(stmt).scalars().first()
+        except NoResultFound:
+            logging.error(f'InstitutionRepo.get_institution_by_id: No such institution: {institution_id}')
+            return None
+        except SQLAlchemyError as e:
+            logging.error(f'InstitutionRepo.get_institution_by_id: SQLAlchemyError: {e}')
+            return None
+        except Exception as e:
+            logging.error(f'InstitutionRepo.get_institution_by_id: Unexpected error: {e}')
+            return None

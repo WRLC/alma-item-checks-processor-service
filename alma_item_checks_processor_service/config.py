@@ -17,6 +17,10 @@ SCF_NO_ROW_TRAY_STAGE_TABLE = os.getenv("SCF_NO_ROW_TRAY_STAGE_TABLE", "scfnorow
 SCF_NO_ROW_TRAY_REPORT_TABLE = os.getenv("SCF_NO_ROW_TRAY_REPORT_TABLE", "scfnorowtrayreporttable")
 IZ_NO_ROW_TRAY_STAGE_TABLE = os.getenv("IZ_NO_ROW_TRAY_STAGE_TABLE", "iznorowtraystagetable")
 
+IZ_NO_ROW_TRAY_NCRON = os.getenv("IZ_NO_ROW_TRAY_NCRON", "0 45 23 * * 0-4")
+SCF_NO_ROW_TRAY_REPORT_NCRON = os.getenv("SCF_NO_ROW_TRAY_REPORT_NCRON", "0 30 23 * * 0-4")
+SCF_DUPLICATES_REPORT_NCRON = os.getenv("SCF_DUPLICATES_REPORT_NCRON", "0 0 9 * * 1-5")
+
 API_CLIENT_TIMEOUT = int(os.getenv("API_CLIENT_TIMEOUT", 90))
 
 # --- Business Logic Constants ---
