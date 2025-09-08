@@ -7,9 +7,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from wrlc_alma_api_client.models import Item
-from wrlc_alma_api_client import AlmaApiClient
-from wrlc_alma_api_client.exceptions import AlmaApiError
+from wrlc_alma_api_client import AlmaApiClient  # type: ignore
+from wrlc_alma_api_client.exceptions import AlmaApiError  # type: ignore
+from wrlc_alma_api_client.models import Item  # type: ignore
 from requests import RequestException
 
 from alma_item_checks_processor_service.config import SKIP_LOCATIONS, API_CLIENT_TIMEOUT
@@ -86,7 +86,7 @@ class BaseItemProcessor(ABC):
 
     def generate_job_id(self, process_name: str) -> str:
         """Generate a job ID"""
-        iz: str = self.parsed_item.get("institution_code")
+        iz: str | None = self.parsed_item.get("institution_code")
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         unique_id = str(uuid.uuid4())[:8]
         job_id = f"{iz}_{process_name}_{timestamp}_{unique_id}"

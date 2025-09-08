@@ -5,7 +5,7 @@ from typing import Any
 
 from wrlc_alma_api_client import AlmaApiClient  # type: ignore
 from wrlc_alma_api_client.models import AnalyticsReportResults  # type: ignore
-from wrlc_azure_storage_service import StorageService
+from wrlc_azure_storage_service import StorageService  # type: ignore
 
 from alma_item_checks_processor_service.config import (
     NOTIFICATION_QUEUE,
