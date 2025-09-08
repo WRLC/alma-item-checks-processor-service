@@ -25,7 +25,7 @@ def institution_to_dict(institution: Institution) -> dict[str, Any]:
 
 # noinspection PyUnusedLocal
 @bp.function_name("get_institutions")
-@bp.route(route="institutions", methods=["GET"])
+@bp.route(route="institutions", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
 def get_institutions(req: func.HttpRequest) -> func.HttpResponse:
     """Get all institutions"""
     try:
@@ -53,7 +53,7 @@ def get_institutions(req: func.HttpRequest) -> func.HttpResponse:
 
 
 @bp.function_name("get_institution")
-@bp.route(route="institutions/{id:int}", methods=["GET"])
+@bp.route(route="institutions/{id:int}", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
 def get_institution(req: func.HttpRequest) -> func.HttpResponse:
     """Get institution by ID"""
     try:
@@ -91,7 +91,7 @@ def get_institution(req: func.HttpRequest) -> func.HttpResponse:
 
 
 @bp.function_name("get_institution_api_key")
-@bp.route(route="institutions/{id:int}/api-key", methods=["GET"])
+@bp.route(route="institutions/{id:int}/api-key", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
 def get_institution_api_key(req: func.HttpRequest) -> func.HttpResponse:
     """Get API key for institution by ID - for downstream services"""
     try:
@@ -129,7 +129,7 @@ def get_institution_api_key(req: func.HttpRequest) -> func.HttpResponse:
 
 
 @bp.function_name("create_institution")
-@bp.route(route="institutions", methods=["POST"])
+@bp.route(route="institutions", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def create_institution(req: func.HttpRequest) -> func.HttpResponse:
     """Create a new institution"""
     try:
@@ -183,7 +183,7 @@ def create_institution(req: func.HttpRequest) -> func.HttpResponse:
 
 
 @bp.function_name("update_institution")
-@bp.route(route="institutions/{id:int}", methods=["PUT"])
+@bp.route(route="institutions/{id:int}", methods=["PUT"], auth_level=func.AuthLevel.FUNCTION)
 def update_institution(req: func.HttpRequest) -> func.HttpResponse:
     """Update an existing institution"""
     try:
@@ -239,7 +239,7 @@ def update_institution(req: func.HttpRequest) -> func.HttpResponse:
 
 
 @bp.function_name("delete_institution")
-@bp.route(route="institutions/{id:int}", methods=["DELETE"])
+@bp.route(route="institutions/{id:int}", methods=["DELETE"], auth_level=func.AuthLevel.FUNCTION)
 def delete_institution(req: func.HttpRequest) -> func.HttpResponse:
     """Delete an institution"""
     try:
