@@ -113,12 +113,16 @@ class SCFItemProcessor(BaseItemProcessor):
         item.item_data.barcode = original_barcode + "X"  # append X to barcode
 
         job_id: str = self.generate_job_id("scf_no_x")
-        institution_code: str = self.parsed_item.get("institution_code")
+        institution_code: str | None = self.parsed_item.get("institution_code")
+
+        if institution_code is None:
+            logging.warning("ProcessorService.scf_no_x_process: institution_code was not provided")
+            return
 
         # Get institution ID for queue message
         with SessionMaker() as db:
             institution_service: InstitutionService = InstitutionService(db)
-            institution: Institution = institution_service.get_institution_by_code(institution_code)
+            institution: Institution | None = institution_service.get_institution_by_code(institution_code)
 
         if not institution:
             logging.error(f"SCFItemProcessor.no_x_process: Institution {institution_code} not found")
@@ -198,13 +202,17 @@ class SCFItemProcessor(BaseItemProcessor):
         """Process SCF no row tray data by storing updated item and adding to report table"""
         item: Item = self.parsed_item.get('item_data')
         barcode: str = item.item_data.barcode
-        institution_code: str = self.parsed_item.get("institution_code")
+        institution_code: str | None = self.parsed_item.get("institution_code")
         job_id = self.generate_job_id("scf_no_row_tray_report")
+
+        if institution_code is None:
+            logging.warning("ProcessorService.scf_no_row_tray_report: institution_code was not provided")
+            return False
 
         # Get institution ID for report table
         with SessionMaker() as db:
             institution_service: InstitutionService = InstitutionService(db)
-            institution: Institution = institution_service.get_institution_by_code(institution_code)
+            institution: Institution | None = institution_service.get_institution_by_code(institution_code)
 
         if not institution:
             logging.error(f"SCFItemProcessor.no_row_tray_report_process: Institution {institution_code} not found")
@@ -268,12 +276,16 @@ class SCFItemProcessor(BaseItemProcessor):
         """Process SCF item with withdrawal data"""
         item: Item = self.parsed_item.get("item_data")
         job_id: str = self.generate_job_id("scf_withdrawn")
-        institution_code: str = self.parsed_item.get("institution_code")
+        institution_code: str | None = self.parsed_item.get("institution_code")
+
+        if institution_code is None:
+            logging.warning("ProcessorService.scf_withdrawn: institution_code was not provided")
+            return
 
         # Get institution ID for queue message
         with SessionMaker() as db:
             institution_service: InstitutionService = InstitutionService(db)
-            institution: Institution = institution_service.get_institution_by_code(institution_code)
+            institution: Institution | None = institution_service.get_institution_by_code(institution_code)
 
         if not institution:
             logging.error(f"SCFItemProcessor.withdrawn_process: Institution {institution_code} not found")
