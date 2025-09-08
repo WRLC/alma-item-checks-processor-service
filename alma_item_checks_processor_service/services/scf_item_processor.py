@@ -4,11 +4,10 @@ import logging
 from typing import Any
 
 import azure.core.exceptions
-from wrlc_alma_api_client.models import Item
+from wrlc_alma_api_client.models import Item  # type: ignore
+from wrlc_azure_storage_service import StorageService  # type: ignore
 
 from alma_item_checks_processor_service.services.base_processor import BaseItemProcessor
-from wrlc_azure_storage_service import StorageService
-
 from alma_item_checks_processor_service.database import SessionMaker
 from alma_item_checks_processor_service.services.institution_service import InstitutionService
 from alma_item_checks_processor_service.models import Institution

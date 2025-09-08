@@ -1,10 +1,11 @@
 """Service to handle barcode events"""
 import json
 import logging
-from typing import Any
+from typing import Any, Literal
 
 import azure.functions as func
 from wrlc_alma_api_client.models import Item  # type: ignore
+
 from alma_item_checks_processor_service.database import SessionMaker
 from alma_item_checks_processor_service.models import Institution
 from alma_item_checks_processor_service.services.base_processor import BaseItemProcessor
@@ -30,19 +31,21 @@ class ProcessorService:
         Returns:
             Item: The item data if found, None otherwise
         """
-        barcode_retrieval_data: dict[str, Any] = self.get_barcode_retrieval_data()  # parse message
+        barcode_retrieval_data: dict[str, Any] | None = self.get_barcode_retrieval_data()  # parse message
 
         if not barcode_retrieval_data:
             return None
 
         inst: Institution | None = self.get_institution(  # get institution object
-            barcode_retrieval_data.get("institution_code")
+            barcode_retrieval_data.get("institution_code")  # type: ignore
         )
 
         if not inst:  # if no institution or barcode, return nothing
             return None
 
-        item: Item | None = BaseItemProcessor.retrieve_item_by_barcode(inst, barcode_retrieval_data.get("barcode"))
+        item: Item | None = BaseItemProcessor.retrieve_item_by_barcode(
+            inst, barcode_retrieval_data.get("barcode")  # type: ignore
+        )
 
         parsed_item: dict[str, Any] | None = {
             "institution_code": inst.code,
@@ -51,7 +54,7 @@ class ProcessorService:
 
         return parsed_item
 
-    def should_process(self, parsed_item: dict[str, Any]) -> list[str] | None:
+    def should_process(self, parsed_item: dict[str, Any]) -> list[str] | Literal[True] | None:
         """Check if barcode should be processed
 
         Args:
@@ -61,6 +64,9 @@ class ProcessorService:
             list[str] | None: list of checks to run or False if none
         """
         iz: str | None = parsed_item.get("institution_code")  # get IZ code
+
+        if iz is None:
+            return None
 
         if iz.lower() == 'scf':  # if IZ is SCF, use SCF check
             scf_processor = SCFItemProcessor(parsed_item)
@@ -72,7 +78,7 @@ class ProcessorService:
             return should_process
 
         iz_processor = IZItemProcessor(parsed_item)
-        should_process: list[str] | bool = iz_processor.should_process()  # if not SCF, use IZ check
+        should_process: list[str] | bool = iz_processor.should_process()  # type: ignore # if not SCF, use IZ check
 
         if not should_process:  # If doesn't meet IZ check criteria, don't process
             return None
@@ -88,6 +94,9 @@ class ProcessorService:
         """
         iz: str | None = parsed_item.get("institution_code")  # get IZ code
 
+        if iz is None:
+            return
+
         if iz.lower() == 'scf':  # If SCF IZ
             scf_processor = SCFItemProcessor(parsed_item)
             scf_processor.process(processes)  # run SCF processes
@@ -102,7 +111,6 @@ class ProcessorService:
 
         institution_code: str | None = message_data.get("institution")  # get institution code
         barcode: str | None = message_data.get("barcode")  # get barcode
-        process: str | None = message_data.get("process")
 
         if not institution_code or not barcode:  # If institution code or barcode missing, log error and return
             logging.error("RequestService.parse_barcode_data: Missing institution or barcode")
