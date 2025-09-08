@@ -48,9 +48,12 @@ class IZItemProcessor(BaseItemProcessor):
 
         """
         item: Item = self.parsed_item.get('item_data')
-        iz: str = self.parsed_item.get("institution_code")
+        iz: str | None = self.parsed_item.get("institution_code")
         location_code: str | None = item.item_data.location.value
         temp_location_code: str | None = item.holding_data.temp_location.value
+
+        if iz is None:
+            return False
 
         if location_code not in CHECKED_IZ_LOCATIONS or temp_location_code not in CHECKED_IZ_LOCATIONS:
             return False
@@ -64,7 +67,11 @@ class IZItemProcessor(BaseItemProcessor):
         """Stage IZ item with missing or incorrect row tray data"""
         item: Item = self.parsed_item.get("item_data")
         barcode: str = item.item_data.barcode
-        institution_code: str = self.parsed_item.get("institution_code")
+        institution_code: str | None = self.parsed_item.get("institution_code")
+
+        if institution_code is None:
+            logging.warning("No institution code found")
+            return
 
         if not barcode:
             logging.warning("No barcode found for IZ item with missing or incorrect row tray data")
@@ -125,7 +132,7 @@ class IZItemProcessor(BaseItemProcessor):
         """Retrieve SCF item by barcode"""
         with SessionMaker() as db:
             institution_service: InstitutionService = InstitutionService(db)
-            scf_institution: Institution = institution_service.get_institution_by_code("scf")
+            scf_institution: Institution | None = institution_service.get_institution_by_code("scf")
 
         if not scf_institution:
             logging.error("IZItemProcessor._get_scf_item_by_barcode: SCF institution not found in database")
@@ -175,6 +182,10 @@ class IZItemProcessor(BaseItemProcessor):
         """Handle successful item update by storing data and adding to report table"""
         institution_code = self.parsed_item.get("institution_code")
         job_id = self.generate_job_id(process_type)
+
+        if institution_code is None:
+            logging.error(f"IZItemProcessor._handle_successful_update: No institution code found")
+            return
 
         storage_service = StorageService()
 

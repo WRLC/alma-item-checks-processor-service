@@ -19,11 +19,14 @@ from alma_item_checks_processor_service.services import InstitutionService
 # noinspection PyMethodMayBeStatic
 class ScfDuplicatesService:
     """SCF Duplicates Service"""
-    def process_scf_duplicates_report(self):
+    def process_scf_duplicates_report(self) -> None:
         """Retrieve SCF Duplicates Analytics Analysis and generate report."""
         with SessionMaker() as session:
             institution_service: InstitutionService = InstitutionService(session)
-            institution: Institution = institution_service.get_institution_by_code('scf')
+            institution: Institution | None = institution_service.get_institution_by_code('scf')
+
+        if institution is None:
+            return
 
         report_id: str = f"scf_duplicate_report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
         alma_client: AlmaApiClient = AlmaApiClient(institution.api_key, "NA", timeout=250)  # get Alma client
