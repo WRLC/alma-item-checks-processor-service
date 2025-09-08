@@ -56,3 +56,108 @@ class InstitutionRepository:
         except Exception as e:
             logging.error(f'InstitutionRepo.get_institution_by_id: Unexpected error: {e}')
             return None
+
+    def get_all_institutions(self) -> list[Institution]:
+        """Get all institutions
+
+        Returns:
+            list[Institution]: List of all institutions
+        """
+        stmt: Select = Select(Institution)
+        try:
+            return list(self.session.execute(stmt).scalars().all())
+        except SQLAlchemyError as e:
+            logging.error(f'InstitutionRepo.get_all_institutions: SQLAlchemyError: {e}')
+            return []
+        except Exception as e:
+            logging.error(f'InstitutionRepo.get_all_institutions: Unexpected error: {e}')
+            return []
+
+    def create_institution(self, name: str, code: str, api_key: str, duplicate_report_path: str | None = None) -> Institution | None:
+        """Create a new institution
+
+        Args:
+            name (str): The name of the institution
+            code (str): The code of the institution
+            api_key (str): The API key of the institution
+            duplicate_report_path (str | None): The duplicate report path
+
+        Returns:
+            Institution | None: The created institution or None if failed
+        """
+        try:
+            institution = Institution(
+                name=name,
+                code=code,
+                api_key=api_key,
+                duplicate_report_path=duplicate_report_path
+            )
+            self.session.add(institution)
+            self.session.commit()
+            self.session.refresh(institution)
+            return institution
+        except SQLAlchemyError as e:
+            logging.error(f'InstitutionRepo.create_institution: SQLAlchemyError: {e}')
+            self.session.rollback()
+            return None
+        except Exception as e:
+            logging.error(f'InstitutionRepo.create_institution: Unexpected error: {e}')
+            self.session.rollback()
+            return None
+
+    def update_institution(self, institution_id: int, **updates) -> Institution | None:
+        """Update an institution
+
+        Args:
+            institution_id (int): The id of the institution
+            **updates: Fields to update
+
+        Returns:
+            Institution | None: The updated institution or None if failed
+        """
+        try:
+            institution = self.get_institution_by_id(institution_id)
+            if not institution:
+                return None
+
+            for field, value in updates.items():
+                if hasattr(institution, field):
+                    setattr(institution, field, value)
+
+            self.session.commit()
+            self.session.refresh(institution)
+            return institution
+        except SQLAlchemyError as e:
+            logging.error(f'InstitutionRepo.update_institution: SQLAlchemyError: {e}')
+            self.session.rollback()
+            return None
+        except Exception as e:
+            logging.error(f'InstitutionRepo.update_institution: Unexpected error: {e}')
+            self.session.rollback()
+            return None
+
+    def delete_institution(self, institution_id: int) -> bool:
+        """Delete an institution
+
+        Args:
+            institution_id (int): The id of the institution
+
+        Returns:
+            bool: True if deleted successfully, False otherwise
+        """
+        try:
+            institution = self.get_institution_by_id(institution_id)
+            if not institution:
+                return False
+
+            self.session.delete(institution)
+            self.session.commit()
+            return True
+        except SQLAlchemyError as e:
+            logging.error(f'InstitutionRepo.delete_institution: SQLAlchemyError: {e}')
+            self.session.rollback()
+            return False
+        except Exception as e:
+            logging.error(f'InstitutionRepo.delete_institution: Unexpected error: {e}')
+            self.session.rollback()
+            return False
