@@ -1,4 +1,5 @@
 """SCF Duplicates Service"""
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Any
@@ -46,7 +47,7 @@ class ScfDuplicatesService:
         storage_service.upload_blob_data(  # upload report to notifier container
             container_name=REPORTS_CONTAINER,
             blob_name=f"{report_id}.json",
-            data=report.rows
+            data=json.dumps(report.rows).encode()
         )
 
         notification_message: dict[str, Any] = {
