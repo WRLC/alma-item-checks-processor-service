@@ -80,7 +80,7 @@ def process_item_data(barcodemsg: func.QueueMessage) -> None:
             logger.info(
                 f"⚙️  TRACE: Processing item {i+1}/{len(processing_list)}: {processing_item}"
             )
-            processor_service.process(item_data, processing_item)  # run the process
+            processor_service.process(item_data, [processing_item])  # run the process
             logger.info(f"✅ TRACE: Completed processing item {i+1}")
 
         logger.info("🎉 TRACE: All processing completed successfully")

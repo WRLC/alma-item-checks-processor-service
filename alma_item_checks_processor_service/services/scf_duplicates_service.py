@@ -12,6 +12,7 @@ from wrlc_azure_storage_service import StorageService  # type: ignore
 from alma_item_checks_processor_service.config import (
     NOTIFICATION_QUEUE,
     REPORTS_CONTAINER,
+    STORAGE_CONNECTION_STRING,
 )
 from alma_item_checks_processor_service.database import SessionMaker
 from alma_item_checks_processor_service.models import Institution
@@ -50,7 +51,9 @@ class ScfDuplicatesService:
             logging.info(f"Job {report_id}: No results found.")
             return
 
-        storage_service = StorageService()  # get storage service
+        storage_service = StorageService(
+            storage_connection_string=STORAGE_CONNECTION_STRING
+        )  # get storage service
 
         storage_service.upload_blob_data(  # upload report to notifier container
             container_name=REPORTS_CONTAINER,
