@@ -12,15 +12,15 @@ repos:
     hooks:
     -   id: ruff
         args: [--fix]
-        files: ^alma_item_checks_webhook_service/
+        files: ^alma_item_checks_processor_service/
     -   id: ruff-format
-        files: ^alma_item_checks_webhook_service/
+        files: ^alma_item_checks_processor_service/
 
 -   repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.10.1
     hooks:
     -   id: mypy
-        files: ^alma_item_checks_webhook_service/
+        files: ^alma_item_checks_processor_service/
 
 -   repo: https://github.com/PyCQA/bandit
     rev: 1.7.9
@@ -28,4 +28,4 @@ repos:
     -   id: bandit
         args: ["-c", "pyproject.toml"]
         exclude: ^tests/
-        files: ^alma_item_checks_webhook_service/
+        files: ^alma_item_checks_processor_service/
