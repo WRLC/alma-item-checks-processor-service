@@ -73,7 +73,7 @@ class ProcessorService:
                 barcode,  # type: ignore
             )
             self.logger.info(
-                f"📋 TRACE: Alma API returned item: {bool(item)} (MMS ID: {item.mms_id if item else 'None'})"
+                f"📋 TRACE: Alma API returned item: {bool(item)} (MMS ID: {item.bib_data.mms_id if item and item.bib_data else 'None'})"
             )
 
             parsed_item: dict[str, Any] | None = {
@@ -109,7 +109,7 @@ class ProcessorService:
                 self.logger.warning("❌ TRACE: No institution code, returning None")
                 return None
 
-            if iz.lower() == "scf":  # if IZ is SCF, use SCF check
+            if iz.lower() == "scf" or "scf-psb":  # if IZ is SCF, use SCF check
                 self.logger.info("🏭 TRACE: Using SCF processor")
                 scf_processor = SCFItemProcessor(parsed_item)
                 should_process: list[str] | bool = scf_processor.should_process()
@@ -150,17 +150,33 @@ class ProcessorService:
             parsed_item (dict[str, Any]): Item data
             processes (list[str]): List of processes to run
         """
-        iz: str | None = parsed_item.get("institution_code")  # get IZ code
+        try:
+            iz: str | None = parsed_item.get("institution_code")  # get IZ code
+            self.logger.info(
+                f"🔧 TRACE: ProcessorService.process starting for {iz} with processes: {processes}"
+            )
 
-        if iz is None:
-            return
+            if iz is None:
+                self.logger.warning("❌ TRACE: No institution code in process method")
+                return
 
-        if iz.lower() == "scf":  # If SCF IZ
-            scf_processor = SCFItemProcessor(parsed_item)
-            scf_processor.process(processes)  # run SCF processes
+            if iz.lower() == "scf" or "scf-psb":  # If SCF IZ
+                self.logger.info("🏭 TRACE: Running SCF processor.process()")
+                scf_processor = SCFItemProcessor(parsed_item)
+                scf_processor.process(processes)  # run SCF processes
+                self.logger.info("✅ TRACE: SCF processor.process() completed")
+            else:
+                self.logger.info("🏛️ TRACE: Running IZ processor.process()")
+                iz_processor = IZItemProcessor(parsed_item)
+                iz_processor.process(processes)
+                self.logger.info("✅ TRACE: IZ processor.process() completed")
 
-        iz_processor = IZItemProcessor(parsed_item)
-        iz_processor.process(processes)
+        except Exception as e:
+            self.logger.error(
+                f"💥 TRACE ERROR: process failed: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            raise
 
     def get_barcode_retrieval_data(self) -> dict[str, Any] | None:
         """Parse fetch item queue message"""

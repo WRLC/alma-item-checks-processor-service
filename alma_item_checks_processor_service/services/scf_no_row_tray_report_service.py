@@ -12,6 +12,7 @@ from alma_item_checks_processor_service.config import (
     SCF_NO_ROW_TRAY_STAGE_TABLE,
     REPORTS_CONTAINER,
     NOTIFICATION_QUEUE,
+    STORAGE_CONNECTION_STRING,
 )
 from alma_item_checks_processor_service.database import SessionMaker
 from alma_item_checks_processor_service.services.institution_service import (
@@ -29,7 +30,9 @@ class SCFNoRowTrayReportService:
     """Service for processing SCF no row tray staged items and generating reports"""
 
     def __init__(self) -> None:
-        self.storage_service: StorageService = StorageService()
+        self.storage_service: StorageService = StorageService(
+            storage_connection_string=STORAGE_CONNECTION_STRING
+        )
         self.scf_institution: Institution | None = None
 
     def process_staged_items_report(self) -> None:
@@ -69,10 +72,20 @@ class SCFNoRowTrayReportService:
         )
 
     def _get_scf_institution(self) -> Institution | None:
-        """Get SCF institution from database"""
+        """Get SCF institution from database, with fallback to scf-psb for debugging"""
         with SessionMaker() as db:
             institution_service: InstitutionService = InstitutionService(db)
-            return institution_service.get_institution_by_code("scf")
+
+            # Try 'scf' first
+            institution = institution_service.get_institution_by_code("scf")
+            if institution:
+                return institution
+
+            # Fall back to 'scf-psb' for debugging
+            logging.info(
+                "SCF institution not found, falling back to scf-psb for debugging"
+            )
+            return institution_service.get_institution_by_code("scf-psb")
 
     def _get_staged_items(self) -> list[dict[str, Any]]:
         """Retrieve all staged items from staging table"""
@@ -132,7 +145,10 @@ class SCFNoRowTrayReportService:
             return {"success": False, "reason": "Item not found in Alma"}
 
         # Create parsed_item structure for processor
-        parsed_item: dict[str, Any] = {"institution_code": "scf", "item_data": item}
+        parsed_item: dict[str, Any] = {
+            "institution_code": self.scf_institution.code,
+            "item_data": item,
+        }
 
         # Check if item should still be processed
         processor: SCFItemProcessor = SCFItemProcessor(parsed_item)

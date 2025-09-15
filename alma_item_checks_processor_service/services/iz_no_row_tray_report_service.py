@@ -6,7 +6,10 @@ from typing import Any
 from wrlc_alma_api_client.models import Item  # type: ignore
 from wrlc_azure_storage_service import StorageService  # type: ignore
 
-from alma_item_checks_processor_service.config import IZ_NO_ROW_TRAY_STAGE_TABLE
+from alma_item_checks_processor_service.config import (
+    IZ_NO_ROW_TRAY_STAGE_TABLE,
+    STORAGE_CONNECTION_STRING,
+)
 from alma_item_checks_processor_service.database import SessionMaker
 from alma_item_checks_processor_service.services.institution_service import (
     InstitutionService,
@@ -23,7 +26,9 @@ class IZNoRowTrayReportService:
     """Service for processing IZ no row tray staged items and generating reports"""
 
     def __init__(self) -> None:
-        self.storage_service: StorageService = StorageService()
+        self.storage_service: StorageService = StorageService(
+            storage_connection_string=STORAGE_CONNECTION_STRING
+        )
 
     def process_staged_items_report(self) -> None:
         """Main method to process all staged items and generate report"""
