@@ -117,43 +117,56 @@ class BaseItemProcessor(ABC):
         Returns:
             Item | None: The item if found, None otherwise
         """
+        logger = logging.getLogger(__name__)
+        logger.info(
+            f"🌐 TRACE: Starting Alma API call for barcode: {barcode} (institution: {institution.code})"
+        )
+
         alma_client: AlmaApiClient = AlmaApiClient(
             api_key=str(institution.api_key), region="NA", timeout=API_CLIENT_TIMEOUT
+        )
+        logger.info(
+            f"🔗 TRACE: AlmaApiClient created with timeout: {API_CLIENT_TIMEOUT}s"
         )
 
         item_data: Item | None = None
 
         for attempt in range(max_retries):
             try:
+                logger.info(
+                    f"🔄 TRACE: Attempt {attempt + 1}/{max_retries} calling alma_client.items.get_item_by_barcode"
+                )
                 item_data = alma_client.items.get_item_by_barcode(barcode=barcode)
+                logger.info(
+                    f"✅ TRACE: Alma API success - got item with MMS ID: {item_data.mms_id if item_data else 'None'}"
+                )
                 break  # Success, exit the loop
             except RequestException as e:  # Catches timeouts, connection errors, etc.
-                logging.warning(
-                    f"Attempt {attempt + 1}/{max_retries} to get item {barcode} "
+                logger.warning(
+                    f"🌐 TRACE: Attempt {attempt + 1}/{max_retries} to get item {barcode} "
                     f"failed with a network error: {e}"
                 )
                 if (
                     attempt < max_retries - 1
                 ):  # If there are retries left, wait and retry
-                    time.sleep(
-                        2 * (attempt + 1)
-                    )  # Wait 2, then 4 seconds before retrying
+                    wait_time = 2 * (attempt + 1)
+                    logger.info(f"⏳ TRACE: Waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)  # Wait 2, then 4 seconds before retrying
                 else:
-                    logging.error(
-                        f"All {max_retries} retry attempts failed for barcode {barcode}. "
+                    logger.error(
+                        f"💥 TRACE: All {max_retries} retry attempts failed for barcode {barcode}. "
                         f"Skipping processing."
                     )
                     return None
             except AlmaApiError as e:  # If non-retriable API error (e.g., 404 Not Found), log and return nothing
-                logging.warning(
-                    f"Error retrieving item {barcode} from Alma, skipping processing: {e}"
+                logger.warning(
+                    f"🚫 TRACE: Error retrieving item {barcode} from Alma, skipping processing: {e}"
                 )
                 return None
 
         if not item_data:
-            logging.info(
-                f"BaseItemProcessor.retrieve_item_by_barcode: Item {barcode} not active in Alma, "
-                "skipping further processing"
+            logger.info(
+                f"🚫 TRACE: Item {barcode} not active in Alma, skipping further processing"
             )
             return None
 
