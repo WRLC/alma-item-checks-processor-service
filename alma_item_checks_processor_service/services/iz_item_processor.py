@@ -14,6 +14,7 @@ from alma_item_checks_processor_service.config import (
     IZ_NO_ROW_TRAY_STAGE_TABLE,
     UPDATE_QUEUE,
     UPDATED_ITEMS_CONTAINER,
+    STORAGE_CONNECTION_STRING,
 )
 from alma_item_checks_processor_service.database import SessionMaker
 from alma_item_checks_processor_service.services.institution_service import (
@@ -88,7 +89,9 @@ class IZItemProcessor(BaseItemProcessor):
             "institution_code": institution_code,
         }
 
-        storage_service: StorageService = StorageService()
+        storage_service: StorageService = StorageService(
+            storage_connection_string=STORAGE_CONNECTION_STRING
+        )
 
         storage_service.upsert_entity(
             table_name=IZ_NO_ROW_TRAY_STAGE_TABLE, entity=entity
@@ -217,7 +220,9 @@ class IZItemProcessor(BaseItemProcessor):
             )
             return
 
-        storage_service = StorageService()
+        storage_service = StorageService(
+            storage_connection_string=STORAGE_CONNECTION_STRING
+        )
 
         # Store updated item data in unified container
         try:

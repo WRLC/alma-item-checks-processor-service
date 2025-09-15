@@ -55,6 +55,7 @@ azurite-data
 .vscode
 
 *.sql
+*.log
 
 CLAUDE.md
 

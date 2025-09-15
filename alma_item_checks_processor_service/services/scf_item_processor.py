@@ -19,6 +19,7 @@ from alma_item_checks_processor_service.config import (
     PROVENANCE,
     SCF_NO_ROW_TRAY_STAGE_TABLE,
     SCF_NO_ROW_TRAY_REPORT_TABLE,
+    STORAGE_CONNECTION_STRING,
     UPDATE_QUEUE,
     NOTIFICATION_QUEUE,
     UPDATED_ITEMS_CONTAINER,
@@ -34,20 +35,38 @@ class SCFItemProcessor(BaseItemProcessor):
         Returns:
             bool: True if SCF should be processed, False otherwise
         """
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.info("🔍 TRACE: SCFItemProcessor.should_process started")
+
         should_process: list[str] = []  # initialize empty list of processes
 
-        if not self.shared_checks():  # If doesn't meet basic criteria, stop processiong
+        shared_check = self.shared_checks()
+        logger.info(f"🔍 TRACE: shared_checks result: {shared_check}")
+        if not shared_check:  # If doesn't meet basic criteria, stop processiong
+            logger.info("❌ TRACE: shared_checks failed, returning empty list")
             return should_process
 
-        if self.no_x_should_process():  # If barcode doesn't end in X...
+        no_x_check = self.no_x_should_process()
+        logger.info(f"❌ TRACE: no_x_should_process result: {no_x_check}")
+        if no_x_check:  # If barcode doesn't end in X...
             should_process.append("scf_no_x")  # ...flag for processing
+            logger.info("✅ TRACE: Added scf_no_x to processing list")
 
-        if self.no_row_tray_should_process():  # If missing/wrong row/tray info...
+        no_row_tray_check = self.no_row_tray_should_process()
+        logger.info(f"📊 TRACE: no_row_tray_should_process result: {no_row_tray_check}")
+        if no_row_tray_check:  # If missing/wrong row/tray info...
             should_process.append("scf_no_row_tray_data")  # ...flag for processing
+            logger.info("✅ TRACE: Added scf_no_row_tray_data to processing list")
 
-        if self.withdrawn_should_process():  # If item marked withdrawn...
+        withdrawn_check = self.withdrawn_should_process()
+        logger.info(f"🗑️ TRACE: withdrawn_should_process result: {withdrawn_check}")
+        if withdrawn_check:  # If item marked withdrawn...
             should_process.append("scf_withdrawn_data")  # ...flag for processing
+            logger.info("✅ TRACE: Added scf_withdrawn_data to processing list")
 
+        logger.info(f"🔍 TRACE: Final should_process list: {should_process}")
         return should_process
 
     def process(self, processes: list[str]) -> None:
@@ -56,15 +75,29 @@ class SCFItemProcessor(BaseItemProcessor):
         Args:
             processes (list[str]): Processes to run
         """
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.info(
+            f"🔧 TRACE: SCFItemProcessor.process starting with processes: {processes}"
+        )
+
         for process in processes:  # iterate through the flagged processes
+            logger.info(f"⚙️ TRACE: Processing {process}")
             if process == "scf_no_x":  # fix missing X from barcode and notify
+                logger.info("❌ TRACE: Starting scf_no_x process")
                 self.no_x_process()
+                logger.info("✅ TRACE: Completed scf_no_x process")
             if (
                 process == "scf_no_row_tray_data"
             ):  # stage problem row/tray data for report
+                logger.info("📊 TRACE: Starting scf_no_row_tray_data process")
                 self.no_row_tray_process()
+                logger.info("✅ TRACE: Completed scf_no_row_tray_data process")
             if process == "scf_withdrawn_data":  # notify to confirm withdrawn item
+                logger.info("🗑️ TRACE: Starting scf_withdrawn_data process")
                 self.withdrawn_process()
+                logger.info("✅ TRACE: Completed scf_withdrawn_data process")
 
     def shared_checks(self) -> bool:
         """Check if SCF item doesn't meet conditions for any checks
@@ -73,7 +106,7 @@ class SCFItemProcessor(BaseItemProcessor):
             bool: True if SCF should be processed, False otherwise
         """
         item: Item = self.parsed_item.get("item_data")
-        barcode: str = item.item_data.item_data.barcode
+        barcode: str = item.item_data.barcode
 
         if (  # If in discard temporary location, don't process
             item.holding_data.temp_location.value
@@ -148,7 +181,9 @@ class SCFItemProcessor(BaseItemProcessor):
             )
             return
 
-        storage_service: StorageService = StorageService()
+        storage_service: StorageService = StorageService(
+            storage_connection_string=STORAGE_CONNECTION_STRING
+        )
 
         # Store updated item data in unified container
         try:
@@ -156,7 +191,10 @@ class SCFItemProcessor(BaseItemProcessor):
                 container_name=UPDATED_ITEMS_CONTAINER,
                 blob_name=f"{job_id}.json",
                 data=json.dumps(
-                    item.__dict__ if hasattr(item, "__dict__") else str(item)
+                    item.model_dump()
+                    if hasattr(item, "model_dump")
+                    else (item.__dict__ if hasattr(item, "__dict__") else str(item)),
+                    default=str,
                 ).encode(),
             )
         except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError) as e:
@@ -188,19 +226,39 @@ class SCFItemProcessor(BaseItemProcessor):
         Returns:
             bool: True if SCF should be processed, False otherwise
         """
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.info("📊 TRACE: no_row_tray_should_process started")
+
         item: Item = self.parsed_item.get("item_data")
 
-        if (  # if item has an excluded note, don't process
-            item.item_data.internal_note_1.lower().strip()
-            in (item.lower().strip() for item in EXCLUDED_NOTES)
+        # Check internal_note_1 safely
+        internal_note_1 = (
+            getattr(item.item_data, "internal_note_1", None) if item.item_data else None
+        )
+        logger.info(f"📊 TRACE: internal_note_1: {internal_note_1}")
+        logger.info(f"📊 TRACE: EXCLUDED_NOTES: {EXCLUDED_NOTES}")
+
+        if internal_note_1 and (  # if item has an excluded note, don't process
+            internal_note_1.lower().strip()
+            in (note.lower().strip() for note in EXCLUDED_NOTES)
         ):
+            logger.info("❌ TRACE: Item has excluded note, returning False")
             return False
 
+        no_row_tray = self.no_row_tray_data()
+        wrong_row_tray = self.wrong_row_tray_data("scf")
+        logger.info(f"📊 TRACE: no_row_tray_data(): {no_row_tray}")
+        logger.info(f"📊 TRACE: wrong_row_tray_data('scf'): {wrong_row_tray}")
+
         if (  # If row/tray data is missing or wrong, process
-            self.no_row_tray_data() or self.wrong_row_tray_data("scf")
+            no_row_tray or wrong_row_tray
         ):
+            logger.info("✅ TRACE: Row/tray data is missing or wrong, returning True")
             return True
 
+        logger.info("❌ TRACE: Row/tray data is OK, returning False")
         return False
 
     def no_row_tray_process(self) -> None:
@@ -219,7 +277,9 @@ class SCFItemProcessor(BaseItemProcessor):
             "RowKey": barcode,  # RowKey = barcode
         }
 
-        storage_service: StorageService = StorageService()  # initialize storage service
+        storage_service: StorageService = StorageService(
+            storage_connection_string=STORAGE_CONNECTION_STRING
+        )  # initialize storage service
 
         storage_service.upsert_entity(  # add barcode to staging table
             table_name=SCF_NO_ROW_TRAY_STAGE_TABLE,  # staging table
@@ -252,7 +312,9 @@ class SCFItemProcessor(BaseItemProcessor):
             )
             return False
 
-        storage_service: StorageService = StorageService()
+        storage_service: StorageService = StorageService(
+            storage_connection_string=STORAGE_CONNECTION_STRING
+        )
 
         # Store item data in unified container
         try:
@@ -260,7 +322,10 @@ class SCFItemProcessor(BaseItemProcessor):
                 container_name=UPDATED_ITEMS_CONTAINER,
                 blob_name=f"{job_id}.json",
                 data=json.dumps(
-                    item.__dict__ if hasattr(item, "__dict__") else str(item)
+                    item.model_dump()
+                    if hasattr(item, "model_dump")
+                    else (item.__dict__ if hasattr(item, "__dict__") else str(item)),
+                    default=str,
                 ).encode(),
             )
         except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError) as e:
@@ -342,7 +407,9 @@ class SCFItemProcessor(BaseItemProcessor):
             )
             return
 
-        storage_service: StorageService = StorageService()
+        storage_service: StorageService = StorageService(
+            storage_connection_string=STORAGE_CONNECTION_STRING
+        )
 
         # Store withdrawal data in unified container (same format as updated items)
         try:
@@ -350,7 +417,10 @@ class SCFItemProcessor(BaseItemProcessor):
                 container_name=UPDATED_ITEMS_CONTAINER,
                 blob_name=f"{job_id}.json",
                 data=json.dumps(
-                    item.__dict__ if hasattr(item, "__dict__") else str(item)
+                    item.model_dump()
+                    if hasattr(item, "model_dump")
+                    else (item.__dict__ if hasattr(item, "__dict__") else str(item)),
+                    default=str,
                 ).encode(),
             )
         except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError) as e:

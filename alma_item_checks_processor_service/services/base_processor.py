@@ -35,14 +35,21 @@ class BaseItemProcessor(ABC):
         )  # get alt call number
         barcode: str = item.item_data.barcode
 
-        if alt_call_number is None:  # if no alt call number, process
+        logging.info(f"📊 TRACE: no_row_tray_data - barcode: {barcode}")
+        logging.info(
+            f"📊 TRACE: no_row_tray_data - alternative_call_number: '{alt_call_number}' (type: {type(alt_call_number)})"
+        )
+
+        if alt_call_number is None or (
+            isinstance(alt_call_number, str) and alt_call_number.strip() == ""
+        ):  # if no alt call number, process
             logging.warning(
                 f"ProcessorService.no_row_tray_data: Item {barcode} Alternative Call Number is not set. Processing."
             )
             return True
 
         logging.info(
-            f"ProcessorService.no_row_tray_data: Item {barcode} Alternative Call Number is set. Skipping."
+            f"ProcessorService.no_row_tray_data: Item {barcode} Alternative Call Number is set to '{alt_call_number}'. Skipping."
         )
         return False
 
@@ -136,9 +143,9 @@ class BaseItemProcessor(ABC):
                 logger.info(
                     f"🔄 TRACE: Attempt {attempt + 1}/{max_retries} calling alma_client.items.get_item_by_barcode"
                 )
-                item_data = alma_client.items.get_item_by_barcode(barcode=barcode)
+                item_data = alma_client.items.get_item_by_barcode(barcode)
                 logger.info(
-                    f"✅ TRACE: Alma API success - got item with MMS ID: {item_data.mms_id if item_data else 'None'}"
+                    f"✅ TRACE: Alma API success - got item with MMS ID: {item_data.bib_data.mms_id if item_data and item_data.bib_data else 'None'}"
                 )
                 break  # Success, exit the loop
             except RequestException as e:  # Catches timeouts, connection errors, etc.
