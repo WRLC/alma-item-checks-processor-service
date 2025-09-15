@@ -7,7 +7,10 @@
         "excludedTypes": "Request"
       }
     },
-    "logLevel": "Warning"
+    "logLevel": {
+      "default": "Warning",
+      "alma_item_checks_processor_service": "Information"
+    }
   },
   "extensionBundle": {
     "id": "Microsoft.Azure.Functions.ExtensionBundle",

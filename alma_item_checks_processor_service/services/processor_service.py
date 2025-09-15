@@ -32,6 +32,7 @@ class ProcessorService:
             barcodemsg (func.QueueMessage): Queue message
         """
         self.barcodemsg: func.QueueMessage = barcodemsg
+        self.logger = logging.getLogger(__name__)
 
     def get_item_by_barcode(self) -> dict[str, Any] | None:
         """Get item by barcode
@@ -39,31 +40,55 @@ class ProcessorService:
         Returns:
             Item: The item data if found, None otherwise
         """
-        barcode_retrieval_data: dict[str, Any] | None = (
-            self.get_barcode_retrieval_data()
-        )  # parse message
+        try:
+            self.logger.info("🔍 TRACE: ProcessorService.get_item_by_barcode started")
 
-        if not barcode_retrieval_data:
-            return None
+            barcode_retrieval_data: dict[str, Any] | None = (
+                self.get_barcode_retrieval_data()
+            )  # parse message
+            self.logger.info(f"📨 TRACE: Parsed message data: {barcode_retrieval_data}")
 
-        inst: Institution | None = self.get_institution(  # get institution object
-            barcode_retrieval_data.get("institution_code")  # type: ignore
-        )
+            if not barcode_retrieval_data:
+                self.logger.warning(
+                    "❌ TRACE: No barcode retrieval data, returning None"
+                )
+                return None
 
-        if not inst:  # if no institution or barcode, return nothing
-            return None
+            inst: Institution | None = self.get_institution(  # get institution object
+                barcode_retrieval_data.get("institution_code")  # type: ignore
+            )
+            self.logger.info(
+                f"🏢 TRACE: Retrieved institution: {inst.code if inst else None}"
+            )
 
-        item: Item | None = BaseItemProcessor.retrieve_item_by_barcode(
-            inst,
-            barcode_retrieval_data.get("barcode"),  # type: ignore
-        )
+            if not inst:  # if no institution or barcode, return nothing
+                self.logger.warning("❌ TRACE: No institution found, returning None")
+                return None
 
-        parsed_item: dict[str, Any] | None = {
-            "institution_code": inst.code,
-            "item_data": item,
-        }
+            barcode = barcode_retrieval_data.get("barcode")
+            self.logger.info(f"📚 TRACE: Calling Alma API for barcode: {barcode}")
 
-        return parsed_item
+            item: Item | None = BaseItemProcessor.retrieve_item_by_barcode(
+                inst,
+                barcode,  # type: ignore
+            )
+            self.logger.info(
+                f"📋 TRACE: Alma API returned item: {bool(item)} (MMS ID: {item.mms_id if item else 'None'})"
+            )
+
+            parsed_item: dict[str, Any] | None = {
+                "institution_code": inst.code,
+                "item_data": item,
+            }
+
+            return parsed_item
+
+        except Exception as e:
+            self.logger.error(
+                f"💥 TRACE ERROR: get_item_by_barcode failed: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            raise
 
     def should_process(
         self, parsed_item: dict[str, Any]
@@ -76,27 +101,47 @@ class ProcessorService:
         Returns:
             list[str] | None: list of checks to run or False if none
         """
-        iz: str | None = parsed_item.get("institution_code")  # get IZ code
+        try:
+            iz: str | None = parsed_item.get("institution_code")  # get IZ code
+            self.logger.info(f"🏢 TRACE: should_process for institution: {iz}")
 
-        if iz is None:
-            return None
+            if iz is None:
+                self.logger.warning("❌ TRACE: No institution code, returning None")
+                return None
 
-        if iz.lower() == "scf":  # if IZ is SCF, use SCF check
-            scf_processor = SCFItemProcessor(parsed_item)
-            should_process: list[str] | bool = scf_processor.should_process()
+            if iz.lower() == "scf":  # if IZ is SCF, use SCF check
+                self.logger.info("🏭 TRACE: Using SCF processor")
+                scf_processor = SCFItemProcessor(parsed_item)
+                should_process: list[str] | bool = scf_processor.should_process()
+                self.logger.info(
+                    f"🔍 TRACE: SCF should_process result: {should_process}"
+                )
 
-            if not should_process:  # If doesn't meet SCF check criteria, don't process
+                if (
+                    not should_process
+                ):  # If doesn't meet SCF check criteria, don't process
+                    self.logger.info("⏭️ TRACE: SCF processor says no processing needed")
+                    return None
+
+                return should_process
+
+            self.logger.info("🏛️ TRACE: Using IZ processor")
+            iz_processor = IZItemProcessor(parsed_item)
+            should_process: list[str] | bool = iz_processor.should_process()  # type: ignore # if not SCF, use IZ check
+            self.logger.info(f"🔍 TRACE: IZ should_process result: {should_process}")
+
+            if not should_process:  # If doesn't meet IZ check criteria, don't process
+                self.logger.info("⏭️ TRACE: IZ processor says no processing needed")
                 return None
 
             return should_process
 
-        iz_processor = IZItemProcessor(parsed_item)
-        should_process: list[str] | bool = iz_processor.should_process()  # type: ignore # if not SCF, use IZ check
-
-        if not should_process:  # If doesn't meet IZ check criteria, don't process
-            return None
-
-        return should_process
+        except Exception as e:
+            self.logger.error(
+                f"💥 TRACE ERROR: should_process failed: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            raise
 
     def process(self, parsed_item: dict[str, Any], processes: list[str]) -> None:
         """Process item data
