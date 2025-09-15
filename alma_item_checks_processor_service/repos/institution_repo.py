@@ -1,4 +1,5 @@
 """Repository for Institution model"""
+
 import logging
 
 from sqlalchemy import Select
@@ -10,6 +11,7 @@ from alma_item_checks_processor_service.models.institution import Institution
 
 class InstitutionRepository:
     """Repository for Institution model"""
+
     def __init__(self, session: Session) -> None:
         self.session = session
 
@@ -26,13 +28,19 @@ class InstitutionRepository:
         try:
             return self.session.execute(stmt).scalars().first()
         except NoResultFound:
-            logging.error(f'InstitutionRepo.get_institution_by_code: No such institution: {code}')
+            logging.error(
+                f"InstitutionRepo.get_institution_by_code: No such institution: {code}"
+            )
             return None
         except SQLAlchemyError as e:
-            logging.error(f'InstitutionRepo.get_institution_by_code: SQLAlchemyError: {e}')
+            logging.error(
+                f"InstitutionRepo.get_institution_by_code: SQLAlchemyError: {e}"
+            )
             return None
         except Exception as e:
-            logging.error(f'InstitutionRepo.get_institution_by_code: Unexpected error: {e}')
+            logging.error(
+                f"InstitutionRepo.get_institution_by_code: Unexpected error: {e}"
+            )
             return None
 
     def get_institution_by_id(self, institution_id: int) -> Institution | None:
@@ -48,13 +56,19 @@ class InstitutionRepository:
         try:
             return self.session.execute(stmt).scalars().first()
         except NoResultFound:
-            logging.error(f'InstitutionRepo.get_institution_by_id: No such institution: {institution_id}')
+            logging.error(
+                f"InstitutionRepo.get_institution_by_id: No such institution: {institution_id}"
+            )
             return None
         except SQLAlchemyError as e:
-            logging.error(f'InstitutionRepo.get_institution_by_id: SQLAlchemyError: {e}')
+            logging.error(
+                f"InstitutionRepo.get_institution_by_id: SQLAlchemyError: {e}"
+            )
             return None
         except Exception as e:
-            logging.error(f'InstitutionRepo.get_institution_by_id: Unexpected error: {e}')
+            logging.error(
+                f"InstitutionRepo.get_institution_by_id: Unexpected error: {e}"
+            )
             return None
 
     def get_all_institutions(self) -> list[Institution]:
@@ -67,13 +81,21 @@ class InstitutionRepository:
         try:
             return list(self.session.execute(stmt).scalars().all())
         except SQLAlchemyError as e:
-            logging.error(f'InstitutionRepo.get_all_institutions: SQLAlchemyError: {e}')
+            logging.error(f"InstitutionRepo.get_all_institutions: SQLAlchemyError: {e}")
             return []
         except Exception as e:
-            logging.error(f'InstitutionRepo.get_all_institutions: Unexpected error: {e}')
+            logging.error(
+                f"InstitutionRepo.get_all_institutions: Unexpected error: {e}"
+            )
             return []
 
-    def create_institution(self, name: str, code: str, api_key: str, duplicate_report_path: str | None = None) -> Institution | None:
+    def create_institution(
+        self,
+        name: str,
+        code: str,
+        api_key: str,
+        duplicate_report_path: str | None = None,
+    ) -> Institution | None:
         """Create a new institution
 
         Args:
@@ -90,18 +112,18 @@ class InstitutionRepository:
                 name=name,
                 code=code,
                 api_key=api_key,
-                duplicate_report_path=duplicate_report_path
+                duplicate_report_path=duplicate_report_path,
             )
             self.session.add(institution)
             self.session.commit()
             self.session.refresh(institution)
             return institution
         except SQLAlchemyError as e:
-            logging.error(f'InstitutionRepo.create_institution: SQLAlchemyError: {e}')
+            logging.error(f"InstitutionRepo.create_institution: SQLAlchemyError: {e}")
             self.session.rollback()
             return None
         except Exception as e:
-            logging.error(f'InstitutionRepo.create_institution: Unexpected error: {e}')
+            logging.error(f"InstitutionRepo.create_institution: Unexpected error: {e}")
             self.session.rollback()
             return None
 
@@ -128,11 +150,11 @@ class InstitutionRepository:
             self.session.refresh(institution)
             return institution
         except SQLAlchemyError as e:
-            logging.error(f'InstitutionRepo.update_institution: SQLAlchemyError: {e}')
+            logging.error(f"InstitutionRepo.update_institution: SQLAlchemyError: {e}")
             self.session.rollback()
             return None
         except Exception as e:
-            logging.error(f'InstitutionRepo.update_institution: Unexpected error: {e}')
+            logging.error(f"InstitutionRepo.update_institution: Unexpected error: {e}")
             self.session.rollback()
             return None
 
@@ -154,10 +176,10 @@ class InstitutionRepository:
             self.session.commit()
             return True
         except SQLAlchemyError as e:
-            logging.error(f'InstitutionRepo.delete_institution: SQLAlchemyError: {e}')
+            logging.error(f"InstitutionRepo.delete_institution: SQLAlchemyError: {e}")
             self.session.rollback()
             return False
         except Exception as e:
-            logging.error(f'InstitutionRepo.delete_institution: Unexpected error: {e}')
+            logging.error(f"InstitutionRepo.delete_institution: Unexpected error: {e}")
             self.session.rollback()
             return False

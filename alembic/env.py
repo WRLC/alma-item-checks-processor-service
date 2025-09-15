@@ -32,10 +32,10 @@ def get_connection_string():
     """Get database connection string from environment or local.settings.json"""
     # First, try to get from environment variable
     connection_string = os.getenv("SQLALCHEMY_CONNECTION_STRING")
-    
+
     if connection_string:
         return connection_string
-    
+
     # Fallback to local.settings.json
     try:
         with open("local.settings.json") as f:
