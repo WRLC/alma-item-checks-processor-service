@@ -2,14 +2,14 @@
 
 [[package]]
 name = "alembic"
-version = "1.16.4"
+version = "1.16.5"
 description = "A database migration tool for SQLAlchemy."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "alembic-1.16.4-py3-none-any.whl", hash = "sha256:b05e51e8e82efc1abd14ba2af6392897e145930c3e0a2faf2b0da2f7f7fd660d"},
-    {file = "alembic-1.16.4.tar.gz", hash = "sha256:efab6ada0dd0fae2c92060800e0bf5c1dc26af15a10e02fb4babff164b4725e2"},
+    {file = "alembic-1.16.5-py3-none-any.whl", hash = "sha256:e845dfe090c5ffa7b92593ae6687c5cb1a101e91fa53868497dbd79847f9dbe3"},
+    {file = "alembic-1.16.5.tar.gz", hash = "sha256:a88bb7f6e513bd4301ecf4c7f2206fe93f9913f9b48dac3b78babde2d6fe765e"},
 ]
 
 [package.dependencies]
@@ -44,14 +44,14 @@ reference = "wrlc-python"
 
 [[package]]
 name = "azure-core"
-version = "1.35.0"
+version = "1.35.1"
 description = "Microsoft Azure Core Library for Python"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "azure_core-1.35.0-py3-none-any.whl", hash = "sha256:8db78c72868a58f3de8991eb4d22c4d368fae226dac1002998d6c50437e7dad1"},
-    {file = "azure_core-1.35.0.tar.gz", hash = "sha256:c0be528489485e9ede59b6971eb63c1eaacf83ef53001bfe3904e475e972be5c"},
+    {file = "azure_core-1.35.1-py3-none-any.whl", hash = "sha256:12da0c9e08e48e198f9158b56ddbe33b421477e1dc98c2e1c8f9e254d92c468b"},
+    {file = "azure_core-1.35.1.tar.gz", hash = "sha256:435d05d6df0fff2f73fb3c15493bb4721ede14203f1ff1382aa6b6b2bdd7e562"},
 ]
 
 [package.dependencies]
@@ -1444,14 +1444,14 @@ reference = "wrlc-python"
 
 [[package]]
 name = "pymysql"
-version = "1.1.1"
+version = "1.1.2"
 description = "Pure Python MySQL Driver"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "PyMySQL-1.1.1-py3-none-any.whl", hash = "sha256:4de15da4c61dc132f4fb9ab763063e693d521a80fd0e87943b9a453dd4c19d6c"},
-    {file = "pymysql-1.1.1.tar.gz", hash = "sha256:e127611aaf2b417403c60bf4dc570124aeb4a57f5f37b8e95ae399a42f904cd0"},
+    {file = "pymysql-1.1.2-py3-none-any.whl", hash = "sha256:e6b1d89711dd51f8f74b1631fe08f039e7d76cf67a42a323d3178f0f25762ed9"},
+    {file = "pymysql-1.1.2.tar.gz", hash = "sha256:4961d3e165614ae65014e361811a724e2044ad3ea3739de9903ae7c21f539f03"},
 ]
 
 [package.extras]
@@ -1803,14 +1803,14 @@ reference = "wrlc-python"
 
 [[package]]
 name = "types-requests"
-version = "2.32.4.20250809"
+version = "2.32.4.20250913"
 description = "Typing stubs for requests"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "types_requests-2.32.4.20250809-py3-none-any.whl", hash = "sha256:f73d1832fb519ece02c85b1f09d5f0dd3108938e7d47e7f94bbfa18a6782b163"},
-    {file = "types_requests-2.32.4.20250809.tar.gz", hash = "sha256:d8060de1c8ee599311f56ff58010fb4902f462a1470802cf9f6ed27bc46c4df3"},
+    {file = "types_requests-2.32.4.20250913-py3-none-any.whl", hash = "sha256:78c9c1fffebbe0fa487a418e0fa5252017e9c60d1a2da394077f1780f655d7e1"},
+    {file = "types_requests-2.32.4.20250913.tar.gz", hash = "sha256:abd6d4f9ce3a9383f269775a9835a4c24e5cd6b9f647d64f88aa4613c33def5d"},
 ]
 
 [package.dependencies]
@@ -1932,20 +1932,20 @@ reference = "wrlc-python"
 
 [[package]]
 name = "wrlc-alma-api-client"
-version = "0.1.5"
+version = "0.1.7"
 description = "Python library providing a convenient interface for the Ex Libris Alma REST APIs."
 optional = false
 python-versions = ">=3.11"
 groups = ["main"]
 files = [
-    {file = "wrlc_alma_api_client-0.1.5-py3-none-any.whl", hash = "sha256:95b6e07d351fcfbc8f659b0cf87ef48e73bc720f05c929165acd7b61e173d703"},
-    {file = "wrlc_alma_api_client-0.1.5.tar.gz", hash = "sha256:8a00212be5bba5809f6a79d1164c54234e1df25f29a47502371b266d76d1ff3d"},
+    {file = "wrlc_alma_api_client-0.1.7-py3-none-any.whl", hash = "sha256:cb52cc4cd634c67704ab8b8d4cdba012b7076294405b6867d99e63ff172ceede"},
+    {file = "wrlc_alma_api_client-0.1.7.tar.gz", hash = "sha256:25330e3577c67fcc92c3502960979de15b2c3832c47f8e5ccc0404560e0d0eaa"},
 ]
 
 [package.dependencies]
 pydantic = ">=2.11.4,<3.0.0"
 requests = ">=2.31.0,<3.0.0"
-xmltodict = ">=0.13.0,<0.15.0"
+xmltodict = ">=0.13.0,<0.16.0"
 
 [package.source]
 type = "legacy"
