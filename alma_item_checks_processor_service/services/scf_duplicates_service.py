@@ -1,4 +1,5 @@
 """SCF Duplicates Service"""
+
 import json
 import logging
 from datetime import datetime, timezone
@@ -20,20 +21,27 @@ from alma_item_checks_processor_service.services import InstitutionService
 # noinspection PyMethodMayBeStatic
 class ScfDuplicatesService:
     """SCF Duplicates Service"""
+
     def process_scf_duplicates_report(self) -> None:
         """Retrieve SCF Duplicates Analytics Analysis and generate report."""
         with SessionMaker() as session:
             institution_service: InstitutionService = InstitutionService(session)
-            institution: Institution | None = institution_service.get_institution_by_code('scf')
+            institution: Institution | None = (
+                institution_service.get_institution_by_code("scf")
+            )
 
         if institution is None:
             return
 
         report_id: str = f"scf_duplicate_report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
-        alma_client: AlmaApiClient = AlmaApiClient(institution.api_key, "NA", timeout=250)  # get Alma client
+        alma_client: AlmaApiClient = AlmaApiClient(
+            institution.api_key, "NA", timeout=250
+        )  # get Alma client
 
         try:
-            report: AnalyticsReportResults = alma_client.analytics.get_report(institution.duplicate_report_path)
+            report: AnalyticsReportResults = alma_client.analytics.get_report(
+                institution.duplicate_report_path
+            )
         except Exception as e:
             logging.error(f"Job {report_id}: Error retrieving report: {e}")
             return
@@ -47,16 +55,15 @@ class ScfDuplicatesService:
         storage_service.upload_blob_data(  # upload report to notifier container
             container_name=REPORTS_CONTAINER,
             blob_name=f"{report_id}.json",
-            data=json.dumps(report.rows).encode()
+            data=json.dumps(report.rows).encode(),
         )
 
         notification_message: dict[str, Any] = {
             "report_id": report_id,
             "institution_id": institution.id,
-            "process_type": "scf_duplicates"
+            "process_type": "scf_duplicates",
         }
 
         storage_service.send_queue_message(  # send message to notifier queue
-            queue_name=NOTIFICATION_QUEUE,
-            message_content=notification_message
+            queue_name=NOTIFICATION_QUEUE, message_content=notification_message
         )

@@ -1,11 +1,16 @@
 """Retrieve item from Alma API by barcode, store data in blob, and queue next action"""
-from typing import Any
+
+from typing import Any, Literal
 
 import azure.functions as func
-from wrlc_alma_api_client.models import Item  # type: ignore
 
-from alma_item_checks_processor_service.config import FETCH_ITEM_QUEUE, STORAGE_CONNECTION_SETTING_NAME
-from alma_item_checks_processor_service.services.processor_service import ProcessorService
+from alma_item_checks_processor_service.config import (
+    FETCH_ITEM_QUEUE,
+    STORAGE_CONNECTION_SETTING_NAME,
+)
+from alma_item_checks_processor_service.services.processor_service import (
+    ProcessorService,
+)
 
 bp: func.Blueprint = func.Blueprint()
 
@@ -14,7 +19,7 @@ bp: func.Blueprint = func.Blueprint()
 @bp.queue_trigger(
     arg_name="barcodemsg",
     queue_name=FETCH_ITEM_QUEUE,
-    connection=STORAGE_CONNECTION_SETTING_NAME
+    connection=STORAGE_CONNECTION_SETTING_NAME,
 )
 def process_item_data(barcodemsg: func.QueueMessage) -> None:
     """Retrieve item from Alma API by barcode, store data in blob, and queue next action
@@ -29,16 +34,25 @@ def process_item_data(barcodemsg: func.QueueMessage) -> None:
         barcodemsg (func.QueueMessage): Queue message
     """
 
-    processor_service: ProcessorService = ProcessorService(barcodemsg)  # initialize service
+    processor_service: ProcessorService = ProcessorService(
+        barcodemsg
+    )  # initialize service
 
-    item_data: dict[str, Any] | None = processor_service.get_item_by_barcode()  # retrieve item by barcode
+    item_data: dict[str, Any] | None = (
+        processor_service.get_item_by_barcode()
+    )  # retrieve item by barcode
 
     if not item_data:  # If no item data, no further processing
         return
 
-    processing_list: list | None = processor_service.should_process(item_data)  # Check if item needs processing
+    # Check if item needs processing
+    processing_list: list[Any] | Literal[True] | None = (
+        processor_service.should_process(item_data)
+    )
 
-    if not processing_list:  # If no processes to run, return
+    if not processing_list or isinstance(
+        processing_list, bool
+    ):  # If no processes to run, return
         return
 
     for processing_item in processing_list:  # Iterate through the flagged processes
