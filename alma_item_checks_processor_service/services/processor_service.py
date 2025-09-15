@@ -1,4 +1,5 @@
 """Service to handle barcode events"""
+
 import json
 import logging
 from typing import Any, Literal
@@ -9,14 +10,21 @@ from wrlc_alma_api_client.models import Item  # type: ignore
 from alma_item_checks_processor_service.database import SessionMaker
 from alma_item_checks_processor_service.models import Institution
 from alma_item_checks_processor_service.services.base_processor import BaseItemProcessor
-from alma_item_checks_processor_service.services.institution_service import InstitutionService
-from alma_item_checks_processor_service.services.iz_item_processor import IZItemProcessor
-from alma_item_checks_processor_service.services.scf_item_processor import SCFItemProcessor
+from alma_item_checks_processor_service.services.institution_service import (
+    InstitutionService,
+)
+from alma_item_checks_processor_service.services.iz_item_processor import (
+    IZItemProcessor,
+)
+from alma_item_checks_processor_service.services.scf_item_processor import (
+    SCFItemProcessor,
+)
 
 
 # noinspection PyMethodMayBeStatic
 class ProcessorService:
     """Service to handle barcode events"""
+
     def __init__(self, barcodemsg: func.QueueMessage) -> None:
         """Initialize the BarcodeService class
 
@@ -31,7 +39,9 @@ class ProcessorService:
         Returns:
             Item: The item data if found, None otherwise
         """
-        barcode_retrieval_data: dict[str, Any] | None = self.get_barcode_retrieval_data()  # parse message
+        barcode_retrieval_data: dict[str, Any] | None = (
+            self.get_barcode_retrieval_data()
+        )  # parse message
 
         if not barcode_retrieval_data:
             return None
@@ -44,17 +54,20 @@ class ProcessorService:
             return None
 
         item: Item | None = BaseItemProcessor.retrieve_item_by_barcode(
-            inst, barcode_retrieval_data.get("barcode")  # type: ignore
+            inst,
+            barcode_retrieval_data.get("barcode"),  # type: ignore
         )
 
         parsed_item: dict[str, Any] | None = {
             "institution_code": inst.code,
-            "item_data": item
+            "item_data": item,
         }
 
         return parsed_item
 
-    def should_process(self, parsed_item: dict[str, Any]) -> list[str] | Literal[True] | None:
+    def should_process(
+        self, parsed_item: dict[str, Any]
+    ) -> list[str] | Literal[True] | None:
         """Check if barcode should be processed
 
         Args:
@@ -68,7 +81,7 @@ class ProcessorService:
         if iz is None:
             return None
 
-        if iz.lower() == 'scf':  # if IZ is SCF, use SCF check
+        if iz.lower() == "scf":  # if IZ is SCF, use SCF check
             scf_processor = SCFItemProcessor(parsed_item)
             should_process: list[str] | bool = scf_processor.should_process()
 
@@ -97,7 +110,7 @@ class ProcessorService:
         if iz is None:
             return
 
-        if iz.lower() == 'scf':  # If SCF IZ
+        if iz.lower() == "scf":  # If SCF IZ
             scf_processor = SCFItemProcessor(parsed_item)
             scf_processor.process(processes)  # run SCF processes
 
@@ -105,15 +118,22 @@ class ProcessorService:
         iz_processor.process(processes)
 
     def get_barcode_retrieval_data(self) -> dict[str, Any] | None:
-        """Parse fetch item queue message
-        """
-        message_data: dict[str, Any] = json.loads(self.barcodemsg.get_body().decode())  # get barcode data
+        """Parse fetch item queue message"""
+        message_data: dict[str, Any] = json.loads(
+            self.barcodemsg.get_body().decode()
+        )  # get barcode data
 
-        institution_code: str | None = message_data.get("institution")  # get institution code
+        institution_code: str | None = message_data.get(
+            "institution"
+        )  # get institution code
         barcode: str | None = message_data.get("barcode")  # get barcode
 
-        if not institution_code or not barcode:  # If institution code or barcode missing, log error and return
-            logging.error("RequestService.parse_barcode_data: Missing institution or barcode")
+        if (
+            not institution_code or not barcode
+        ):  # If institution code or barcode missing, log error and return
+            logging.error(
+                "RequestService.parse_barcode_data: Missing institution or barcode"
+            )
             return None
 
         barcode_retrieval_data: dict[str, Any] = {  # create dict for API call
@@ -133,7 +153,11 @@ class ProcessorService:
             Institution | None: The institution if found, None otherwise
         """
         with SessionMaker() as db:  # make database session
-            institution_service: InstitutionService = InstitutionService(db)  # initialize InstitutionService
-            institution: Institution | None = institution_service.get_institution_by_code(code=code)  # get institution
+            institution_service: InstitutionService = InstitutionService(
+                db
+            )  # initialize InstitutionService
+            institution: Institution | None = (
+                institution_service.get_institution_by_code(code=code)
+            )  # get institution
 
         return institution

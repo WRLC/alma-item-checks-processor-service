@@ -1,4 +1,5 @@
-""" SQLAlchemy SessionMaker """
+"""SQLAlchemy SessionMaker"""
+
 from sqlalchemy import create_engine, Engine
 from sqlalchemy.orm import sessionmaker
 
@@ -13,8 +14,12 @@ def get_engine() -> Engine:
     global _db_engine
     if _db_engine is None:
         if SQLALCHEMY_CONNECTION_STRING is None:
-            raise ValueError("SQLALCHEMY_CONNECTION_STRING environment variable not set")
-        _db_engine = create_engine(SQLALCHEMY_CONNECTION_STRING, echo=True, pool_pre_ping=True)
+            raise ValueError(
+                "SQLALCHEMY_CONNECTION_STRING environment variable not set"
+            )
+        _db_engine = create_engine(
+            SQLALCHEMY_CONNECTION_STRING, echo=True, pool_pre_ping=True
+        )
     return _db_engine
 
 

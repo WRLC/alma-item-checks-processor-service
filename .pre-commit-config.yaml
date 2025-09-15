@@ -21,6 +21,7 @@ repos:
     hooks:
     -   id: mypy
         files: ^alma_item_checks_processor_service/
+        additional_dependencies: [types-requests]
 
 -   repo: https://github.com/PyCQA/bandit
     rev: 1.7.9
