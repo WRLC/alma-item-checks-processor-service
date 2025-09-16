@@ -160,3 +160,23 @@ class TestProcessorService:
         result = self.service.get_barcode_retrieval_data()
 
         assert result is None
+
+    @patch('alma_item_checks_processor_service.services.processor_service.SCFItemProcessor')
+    def test_should_process_scf_no_processing_needed(self, mock_scf_processor):
+        """Test should_process for SCF when no processing is needed"""
+        parsed_item = {'institution_code': 'scf'}
+        mock_scf_processor.return_value.should_process.return_value = None
+
+        result = self.service.should_process(parsed_item)
+
+        assert result is None
+
+    @patch('alma_item_checks_processor_service.services.processor_service.IZItemProcessor')
+    def test_should_process_iz_no_processing_needed(self, mock_iz_processor):
+        """Test should_process for IZ when no processing is needed"""
+        parsed_item = {'institution_code': 'iz'}
+        mock_iz_processor.return_value.should_process.return_value = None
+
+        result = self.service.should_process(parsed_item)
+
+        assert result is None

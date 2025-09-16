@@ -194,3 +194,81 @@ class TestInstitutionRepository:
 
         assert result is False
         self.mock_session.rollback.assert_called_once()
+
+    def test_get_institution_by_id_sqlalchemy_error(self):
+        """Test get_institution_by_id with SQLAlchemy error"""
+        self.mock_session.execute.side_effect = SQLAlchemyError("Database error")
+
+        with patch('alma_item_checks_processor_service.repos.institution_repo.logging'):
+            result = self.repo.get_institution_by_id(1)
+
+        assert result is None
+
+    def test_get_institution_by_id_unexpected_error(self):
+        """Test get_institution_by_id with unexpected error"""
+        self.mock_session.execute.side_effect = Exception("Unexpected error")
+
+        with patch('alma_item_checks_processor_service.repos.institution_repo.logging'):
+            result = self.repo.get_institution_by_id(1)
+
+        assert result is None
+
+    def test_get_all_institutions_unexpected_error(self):
+        """Test get_all_institutions with unexpected error"""
+        self.mock_session.query.side_effect = Exception("Unexpected error")
+
+        with patch('alma_item_checks_processor_service.repos.institution_repo.logging'):
+            result = self.repo.get_all_institutions()
+
+        assert result == []
+
+    def test_create_institution_unexpected_error(self):
+        """Test create_institution with unexpected error"""
+        self.mock_session.add.side_effect = Exception("Unexpected error")
+
+        with patch('alma_item_checks_processor_service.repos.institution_repo.Institution'), \
+             patch('alma_item_checks_processor_service.repos.institution_repo.logging'):
+            result = self.repo.create_institution(
+                name="Test Institution",
+                code="test",
+                api_key="test_key"
+            )
+
+        assert result is None
+        self.mock_session.rollback.assert_called_once()
+
+    def test_update_institution_sqlalchemy_error(self):
+        """Test update_institution with SQLAlchemy error"""
+        mock_institution = Mock(spec=Institution)
+        self.mock_session.commit.side_effect = SQLAlchemyError("Database error")
+
+        with patch.object(self.repo, 'get_institution_by_id', return_value=mock_institution), \
+             patch('alma_item_checks_processor_service.repos.institution_repo.logging'):
+            result = self.repo.update_institution(1, name="New Name")
+
+        assert result is None
+        self.mock_session.rollback.assert_called_once()
+
+    def test_update_institution_unexpected_error(self):
+        """Test update_institution with unexpected error"""
+        mock_institution = Mock(spec=Institution)
+        self.mock_session.commit.side_effect = Exception("Unexpected error")
+
+        with patch.object(self.repo, 'get_institution_by_id', return_value=mock_institution), \
+             patch('alma_item_checks_processor_service.repos.institution_repo.logging'):
+            result = self.repo.update_institution(1, name="New Name")
+
+        assert result is None
+        self.mock_session.rollback.assert_called_once()
+
+    def test_delete_institution_unexpected_error(self):
+        """Test delete_institution with unexpected error"""
+        mock_institution = Mock(spec=Institution)
+        self.mock_session.commit.side_effect = Exception("Unexpected error")
+
+        with patch.object(self.repo, 'get_institution_by_id', return_value=mock_institution), \
+             patch('alma_item_checks_processor_service.repos.institution_repo.logging'):
+            result = self.repo.delete_institution(1)
+
+        assert result is False
+        self.mock_session.rollback.assert_called_once()
