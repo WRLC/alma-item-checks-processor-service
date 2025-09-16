@@ -201,3 +201,72 @@ class TestIZNoRowTrayReportService:
         with patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.logging'):
             # Should not raise exception
             self.service._clear_staging_table(staged_entities)
+
+    @patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.SessionMaker')
+    def test_process_staged_items_report_with_items(self, mock_session_maker):
+        """Test process_staged_items_report when items are found"""
+        mock_session = Mock()
+        mock_session_maker.return_value.__enter__.return_value = mock_session
+
+        mock_institution_service = Mock()
+        mock_institution = Mock()
+        mock_institution.id = 1
+        mock_institution_service.get_institution_by_code.return_value = mock_institution
+
+        # Mock staged entities
+        staged_entities = [
+            {"PartitionKey": "iz_no_row_tray", "RowKey": "12345", "institution_code": "test"}
+        ]
+
+        with patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.InstitutionService',
+                   return_value=mock_institution_service), \
+             patch.object(self.service, '_get_staged_items', return_value=staged_entities), \
+             patch.object(self.service, '_process_staged_items', return_value=(1, 0)), \
+             patch.object(self.service, '_clear_staging_table'), \
+             patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.logging') as mock_logging:
+
+            self.service.process_staged_items_report()
+
+        # Should complete processing
+        mock_logging.info.assert_any_call("IZ no row tray report processing completed. Processed: 1, Failed: 0")
+
+    @patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.SessionMaker')
+    def test_process_staged_items_with_failed_items(self, mock_session_maker):
+        """Test _process_staged_items with failed processing"""
+        mock_session = Mock()
+        mock_session_maker.return_value.__enter__.return_value = mock_session
+
+        mock_institution_service = Mock()
+        mock_institution = Mock()
+        mock_institution.id = 1
+        mock_institution_service.get_institution_by_code.return_value = mock_institution
+
+        staged_entities = [
+            {"PartitionKey": "iz_no_row_tray", "RowKey": "12345", "institution_code": "test"}
+        ]
+
+        with patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.InstitutionService',
+                   return_value=mock_institution_service), \
+             patch.object(self.service, '_process_single_item', return_value={"success": False, "reason": "Test failure"}), \
+             patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.logging') as mock_logging:
+
+            processed_count, failed_count = self.service._process_staged_items(staged_entities)
+
+        assert processed_count == 0
+        assert failed_count == 1
+        mock_logging.warning.assert_called_with("Failed to process item 12345: Test failure")
+
+    def test_clear_staging_table_with_empty_barcode(self):
+        """Test _clear_staging_table with entity that has no barcode"""
+        staged_entities = [
+            {"PartitionKey": "iz_no_row_tray", "RowKey": None},  # Empty barcode
+            {"PartitionKey": "iz_no_row_tray", "RowKey": "12345"}
+        ]
+
+        with patch.object(self.service.storage_service, 'delete_entity') as mock_delete, \
+             patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.logging'):
+
+            self.service._clear_staging_table(staged_entities)
+
+        # Should only delete the entity with a valid barcode
+        mock_delete.assert_called_once()
