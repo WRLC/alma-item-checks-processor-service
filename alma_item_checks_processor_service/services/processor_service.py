@@ -109,7 +109,7 @@ class ProcessorService:
                 self.logger.warning("❌ TRACE: No institution code, returning None")
                 return None
 
-            if iz.lower() == "scf" or "scf-psb":  # if IZ is SCF, use SCF check
+            if iz.lower() in ["scf", "scf-psb"]:  # if IZ is SCF, use SCF check
                 self.logger.info("🏭 TRACE: Using SCF processor")
                 scf_processor = SCFItemProcessor(parsed_item)
                 should_process: list[str] | bool = scf_processor.should_process()
@@ -160,7 +160,7 @@ class ProcessorService:
                 self.logger.warning("❌ TRACE: No institution code in process method")
                 return
 
-            if iz.lower() == "scf" or "scf-psb":  # If SCF IZ
+            if iz.lower() in ["scf", "scf-psb"]:  # If SCF IZ
                 self.logger.info("🏭 TRACE: Running SCF processor.process()")
                 scf_processor = SCFItemProcessor(parsed_item)
                 scf_processor.process(processes)  # run SCF processes
