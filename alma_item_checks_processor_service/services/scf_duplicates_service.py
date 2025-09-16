@@ -27,11 +27,21 @@ class ScfDuplicatesService:
         """Retrieve SCF Duplicates Analytics Analysis and generate report."""
         with SessionMaker() as session:
             institution_service: InstitutionService = InstitutionService(session)
+
+            # Try 'scf' first
             institution: Institution | None = (
                 institution_service.get_institution_by_code("scf")
             )
 
+            # Fall back to 'scf-psb' for debugging
+            if institution is None:
+                logging.info(
+                    "SCF institution not found, falling back to scf-psb for debugging"
+                )
+                institution = institution_service.get_institution_by_code("scf-psb")
+
         if institution is None:
+            logging.error("Neither SCF nor scf-psb institution found in database")
             return
 
         report_id: str = f"scf_duplicate_report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"

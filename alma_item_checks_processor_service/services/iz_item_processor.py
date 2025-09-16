@@ -32,7 +32,7 @@ class IZItemProcessor(BaseItemProcessor):
         should_process: list[str] = []
 
         if self.no_row_tray_should_process():
-            should_process.append("iz_now_row_tray")
+            should_process.append("iz_no_row_tray")
 
         return should_process
 
@@ -58,7 +58,7 @@ class IZItemProcessor(BaseItemProcessor):
 
         if (
             location_code not in CHECKED_IZ_LOCATIONS
-            or temp_location_code not in CHECKED_IZ_LOCATIONS
+            and temp_location_code not in CHECKED_IZ_LOCATIONS
         ):
             return False
 
@@ -145,13 +145,22 @@ class IZItemProcessor(BaseItemProcessor):
         """Retrieve SCF item by barcode"""
         with SessionMaker() as db:
             institution_service: InstitutionService = InstitutionService(db)
+
+            # Try 'scf' first
             scf_institution: Institution | None = (
                 institution_service.get_institution_by_code("scf")
             )
 
+            # Fall back to 'scf-psb' for debugging
+            if scf_institution is None:
+                logging.info(
+                    "SCF institution not found, falling back to scf-psb for debugging"
+                )
+                scf_institution = institution_service.get_institution_by_code("scf-psb")
+
         if not scf_institution:
             logging.error(
-                "IZItemProcessor._get_scf_item_by_barcode: SCF institution not found in database"
+                "IZItemProcessor._get_scf_item_by_barcode: Neither SCF nor scf-psb institution found in database"
             )
             return None
 
@@ -230,7 +239,10 @@ class IZItemProcessor(BaseItemProcessor):
                 container_name=UPDATED_ITEMS_CONTAINER,
                 blob_name=f"{job_id}.json",
                 data=json.dumps(
-                    item.__dict__ if hasattr(item, "__dict__") else str(item)
+                    item.model_dump()
+                    if hasattr(item, "model_dump")
+                    else (item.__dict__ if hasattr(item, "__dict__") else str(item)),
+                    default=str,
                 ).encode(),
             )
         except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError) as e:

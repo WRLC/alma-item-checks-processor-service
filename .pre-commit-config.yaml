@@ -30,3 +30,13 @@ repos:
         args: ["-c", "pyproject.toml"]
         exclude: ^tests/
         files: ^alma_item_checks_processor_service/
+
+-   repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        types: [python]
