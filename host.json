@@ -8,8 +8,7 @@
       }
     },
     "logLevel": {
-      "default": "Warning",
-      "alma_item_checks_processor_service": "Information"
+      "default": "Warning"
     }
   },
   "extensionBundle": {
