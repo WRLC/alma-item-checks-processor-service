@@ -106,7 +106,7 @@ jobs:
         run: poetry config http-basic.wrlc-python pat ${{ secrets.AZURE_DEVOPS_PAT }}
 
       - name: Build with Poetry
-        run: poetry install --without dev --no-root
+        run: poetry install --without dev
 
       - name: Construct deployment artifact
         run: |
