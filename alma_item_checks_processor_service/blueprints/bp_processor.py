@@ -35,6 +35,14 @@ def process_item_data(barcodemsg: func.QueueMessage) -> None:
 
     Args:
         barcodemsg (func.QueueMessage): Queue message
+
+    Raises:
+        json.JSONDecodeError: If queue message is not valid JSON
+        ValueError: If item data validation fails
+        SQLAlchemyError: If database operations fail
+        AlmaApiError: If Alma API calls fail
+        RequestException: If network requests fail
+        azure.core.exceptions.ServiceRequestError: If Azure storage operations fail
     """
     try:
         processor_service: ProcessorService = ProcessorService(

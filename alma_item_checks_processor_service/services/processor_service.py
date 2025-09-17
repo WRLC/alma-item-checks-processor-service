@@ -38,7 +38,13 @@ class ProcessorService:
         """Get item by barcode
 
         Returns:
-            Item: The item data if found, None otherwise
+            dict[str, Any] | None: The item data with institution code if found, None otherwise
+
+        Raises:
+            ValueError: If barcode retrieval data parsing fails
+            SQLAlchemyError: If database queries fail
+            AlmaApiError: If Alma API calls fail
+            RequestException: If network requests fail
         """
         try:
             barcode_retrieval_data: dict[str, Any] | None = (
@@ -86,6 +92,10 @@ class ProcessorService:
 
         Returns:
             list[str] | None: list of checks to run or False if none
+
+        Raises:
+            ValueError: If item data validation fails
+            KeyError: If required item data fields are missing
         """
         try:
             iz: str | None = parsed_item.get("institution_code")  # get IZ code
@@ -125,6 +135,14 @@ class ProcessorService:
         Args:
             parsed_item (dict[str, Any]): Item data
             processes (list[str]): List of processes to run
+
+        Raises:
+            ValueError: If item data validation fails
+            KeyError: If required item data fields are missing
+            SQLAlchemyError: If database operations fail
+            azure.core.exceptions.ServiceRequestError: If Azure storage operations fail
+            AlmaApiError: If Alma API calls fail
+            RequestException: If network requests fail
         """
         try:
             iz: str | None = parsed_item.get("institution_code")  # get IZ code
@@ -147,7 +165,15 @@ class ProcessorService:
             raise
 
     def get_barcode_retrieval_data(self) -> dict[str, Any] | None:
-        """Parse fetch item queue message"""
+        """Parse fetch item queue message
+
+        Returns:
+            dict[str, Any] | None: Parsed message data with institution_code and barcode, None if invalid
+
+        Raises:
+            json.JSONDecodeError: If message body is not valid JSON
+            UnicodeDecodeError: If message body cannot be decoded
+        """
         message_data: dict[str, Any] = json.loads(
             self.barcodemsg.get_body().decode()
         )  # get barcode data
