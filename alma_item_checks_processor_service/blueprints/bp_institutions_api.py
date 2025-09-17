@@ -30,7 +30,18 @@ def institution_to_dict(institution: Institution) -> dict[str, Any]:
 @bp.function_name("get_institutions")
 @bp.route(route="institutions", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
 def get_institutions(req: func.HttpRequest) -> func.HttpResponse:
-    """Get all institutions"""
+    """Get all institutions
+
+    Args:
+        req (func.HttpRequest): The HTTP request
+
+    Returns:
+        func.HttpResponse: JSON response with institutions list or error
+
+    Raises:
+        SQLAlchemyError: If database query fails
+        json.JSONEncodeError: If response serialization fails
+    """
     try:
         with SessionMaker() as session:
             repo = InstitutionRepository(session)
@@ -60,7 +71,19 @@ def get_institutions(req: func.HttpRequest) -> func.HttpResponse:
     route="institutions/{id:int}", methods=["GET"], auth_level=func.AuthLevel.FUNCTION
 )
 def get_institution(req: func.HttpRequest) -> func.HttpResponse:
-    """Get institution by ID"""
+    """Get institution by ID
+
+    Args:
+        req (func.HttpRequest): The HTTP request with institution ID in route params
+
+    Returns:
+        func.HttpResponse: JSON response with institution data or error
+
+    Raises:
+        ValueError: If institution ID is not a valid integer
+        SQLAlchemyError: If database query fails
+        json.JSONEncodeError: If response serialization fails
+    """
     try:
         institution_id = int(req.route_params.get("id"))
 

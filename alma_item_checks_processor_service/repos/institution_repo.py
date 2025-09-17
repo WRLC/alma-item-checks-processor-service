@@ -22,7 +22,10 @@ class InstitutionRepository:
             code (str): The code of the institution
 
         Returns:
-            Institution: The institution object
+            Institution | None: The institution object if found, None otherwise
+
+        Raises:
+            SQLAlchemyError: If database query fails
         """
         stmt: Select = Select(Institution).where(Institution.code == code)
         try:
@@ -50,7 +53,10 @@ class InstitutionRepository:
             institution_id (int): The id of the institution
 
         Returns:
-            Institution: The institution object or None
+            Institution | None: The institution object if found, None otherwise
+
+        Raises:
+            SQLAlchemyError: If database query fails
         """
         stmt: Select = Select(Institution).where(Institution.id == institution_id)
         try:
@@ -76,6 +82,9 @@ class InstitutionRepository:
 
         Returns:
             list[Institution]: List of all institutions
+
+        Raises:
+            SQLAlchemyError: If database query fails
         """
         stmt: Select = Select(Institution)
         try:

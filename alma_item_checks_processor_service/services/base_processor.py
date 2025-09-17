@@ -28,6 +28,10 @@ class BaseItemProcessor(ABC):
 
         Returns:
             bool: True if SCF should be processed, False otherwise
+
+        Raises:
+            KeyError: If required item data fields are missing
+            AttributeError: If item data structure is invalid
         """
         item: Item = self.parsed_item.get("item_data")
         alt_call_number: str | None = (
@@ -51,8 +55,15 @@ class BaseItemProcessor(ABC):
     def wrong_row_tray_data(self, iz: str) -> bool:
         """Check if SCF item has wrong row/tray data
 
+        Args:
+            iz (str): Institution zone code
+
         Returns:
             bool: True if SCF should be processed, False otherwise
+
+        Raises:
+            KeyError: If required item data fields are missing
+            AttributeError: If item data structure is invalid
         """
         item: Item = self.parsed_item.get("item_data")
         barcode: str = item.item_data.barcode
@@ -118,6 +129,11 @@ class BaseItemProcessor(ABC):
 
         Returns:
             Item | None: The item if found, None otherwise
+
+        Raises:
+            AlmaApiError: If Alma API returns an error response
+            RequestException: If network request fails after all retries
+            ValueError: If institution API key is invalid
         """
         logger = logging.getLogger(__name__)
         alma_client: AlmaApiClient = AlmaApiClient(
