@@ -106,17 +106,17 @@ class TestBpProcessor:
             mock_logger.error.assert_called()
 
     @patch('alma_item_checks_processor_service.blueprints.bp_processor.ProcessorService')
-    def test_process_item_data_with_logging(self, mock_processor_service_class):
-        """Test that logging statements are called appropriately"""
-        mock_service = Mock()
-        mock_processor_service_class.return_value = mock_service
+    def test_process_item_data_error_logging(self, mock_processor_service_class):
+        """Test that error logging is called when an exception occurs"""
+        mock_processor_service_class.side_effect = Exception("Test error")
 
-        mock_parsed_item = {"institution_code": "test", "item_data": Mock()}
-        mock_service.get_item_by_barcode.return_value = mock_parsed_item
-        mock_service.should_process.return_value = ["scf_no_x"]
-
-        with patch('alma_item_checks_processor_service.blueprints.bp_processor.logger') as mock_logger:
+        with patch('alma_item_checks_processor_service.blueprints.bp_processor.logger') as mock_logger, \
+             pytest.raises(Exception):
             process_item_data(self.mock_message)
 
-        # Verify logging calls were made
-        assert mock_logger.info.call_count >= 1
+        # Verify error logging was called
+        assert mock_logger.error.call_count >= 1
+        # Verify the error message contains expected content
+        error_call_args = mock_logger.error.call_args[0][0]
+        assert "process_item_data failed" in error_call_args
+        assert "Test error" in error_call_args

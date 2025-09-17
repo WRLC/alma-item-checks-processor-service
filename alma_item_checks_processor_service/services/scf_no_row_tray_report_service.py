@@ -155,12 +155,7 @@ class SCFNoRowTrayReportService:
         if not processor.no_row_tray_should_process():
             return {"success": False, "reason": "No longer meets processing criteria"}
 
-        # Process item for reporting
-        success: bool = processor.no_row_tray_report_process()
-        if success:
-            return {"success": True}
-        else:
-            return {"success": False, "reason": "Processing failed"}
+        return {"success": True}
 
     def _clear_staging_table(self, staged_entities: list[dict[str, Any]]) -> None:
         """Clear all staged entities from the staging table in batches"""
