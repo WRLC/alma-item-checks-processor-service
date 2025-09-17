@@ -40,3 +40,10 @@ repos:
         pass_filenames: false
         always_run: true
         types: [python]
+      - id: pytest-coverage
+        name: pytest-coverage
+        entry: pytest --cov=alma_item_checks_processor_service --cov-fail-under=90 --cov-report=term-missing --cov-report=html
+        language: system
+        pass_filenames: false
+        always_run: true
+        types: [python]
