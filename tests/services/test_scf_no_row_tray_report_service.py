@@ -211,9 +211,9 @@ class TestSCFNoRowTrayReportService:
         mock_datetime.now.return_value = mock_now
         self.service.scf_institution = Institution(id=1, code='scf', name='SCF')
 
-        report_id = self.service._generate_report(1, [], [])
+        job_id = self.service._generate_report(1, [], [])
 
-        assert report_id == 'scf_no_row_tray_report_20250101_120000'
+        assert job_id == 'scf_no_row_tray_report_20250101_120000'
         self.service.storage_service.upload_blob_data.assert_called_once()
 
     @patch('alma_item_checks_processor_service.services.scf_no_row_tray_report_service.datetime')
@@ -226,15 +226,15 @@ class TestSCFNoRowTrayReportService:
         self.service.scf_institution = Institution(id=1, code='scf', name='SCF')
         self.service.storage_service.upload_blob_data.side_effect = Exception("Test Exception")
 
-        report_id = self.service._generate_report(1, [], [])
+        job_id = self.service._generate_report(1, [], [])
 
-        assert report_id is None
+        assert job_id is None
 
     def test_send_notification(self):
         """Test _send_notification method"""
         self.service.scf_institution = Institution(id=1, code='scf', name='SCF')
 
-        self.service._send_notification('report_id')
+        self.service._send_notification('job_id')
 
         self.service.storage_service.send_queue_message.assert_called_once()
 
@@ -243,7 +243,7 @@ class TestSCFNoRowTrayReportService:
         self.service.scf_institution = Institution(id=1, code='scf', name='SCF')
         self.service.storage_service.send_queue_message.side_effect = Exception("Test Exception")
 
-        self.service._send_notification('report_id')
+        self.service._send_notification('job_id')
 
         self.service.storage_service.send_queue_message.assert_called_once()
 
@@ -251,6 +251,6 @@ class TestSCFNoRowTrayReportService:
         """Test _send_notification method when scf_institution is None"""
         self.service.scf_institution = None
 
-        self.service._send_notification('report_id')
+        self.service._send_notification('job_id')
 
         self.service.storage_service.send_queue_message.assert_not_called()

@@ -217,24 +217,24 @@ class SCFNoRowTrayReportService:
         }
 
         # Store report in container
-        report_id: str = f"scf_no_row_tray_report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        job_id: str = f"scf_no_row_tray_report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
         try:
             self.storage_service.upload_blob_data(
                 container_name=REPORTS_CONTAINER,
-                blob_name=report_id + ".json",
+                blob_name=job_id + ".json",
                 data=json.dumps(report, indent=2).encode(),
             )
-            logging.info(f"Report stored as {report_id}.json")
-            return report_id
+            logging.info(f"Report stored as {job_id}.json")
+            return job_id
         except Exception as e:
             logging.error(f"Failed to store report: {e}")
             return None
 
-    def _send_notification(self, report_id: str) -> None:
+    def _send_notification(self, job_id: str) -> None:
         """Send notification message about completed report"""
         if self.scf_institution is not None:
             notification_message: dict[str, Any] = {
-                "report_id": report_id,
+                "job_id": job_id,
                 "institution_id": self.scf_institution.id,
                 "process_type": "scf_no_row_tray_report",
             }
