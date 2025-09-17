@@ -125,7 +125,6 @@ class TestSCFNoRowTrayReportService:
         mock_base_item_processor.retrieve_item_by_barcode.return_value = mock_item
         mock_processor_instance = mock_scf_item_processor.return_value
         mock_processor_instance.no_row_tray_should_process.return_value = True
-        mock_processor_instance.no_row_tray_report_process.return_value = True
 
         result = self.service._process_single_item('123')
 
@@ -157,21 +156,6 @@ class TestSCFNoRowTrayReportService:
         assert result['success'] is False
         assert result['reason'] == 'No longer meets processing criteria'
 
-    @patch('alma_item_checks_processor_service.services.scf_no_row_tray_report_service.BaseItemProcessor')
-    @patch('alma_item_checks_processor_service.services.scf_no_row_tray_report_service.SCFItemProcessor')
-    def test_process_single_item_processing_failed(self, mock_scf_item_processor, mock_base_item_processor):
-        """Test _process_single_item when processing fails"""
-        self.service.scf_institution = Mock()
-        mock_item = Mock()
-        mock_base_item_processor.retrieve_item_by_barcode.return_value = mock_item
-        mock_processor_instance = mock_scf_item_processor.return_value
-        mock_processor_instance.no_row_tray_should_process.return_value = True
-        mock_processor_instance.no_row_tray_report_process.return_value = False
-
-        result = self.service._process_single_item('123')
-
-        assert result['success'] is False
-        assert result['reason'] == 'Processing failed'
 
     def test_process_single_item_no_institution(self):
         """Test _process_single_item when scf_institution is None"""

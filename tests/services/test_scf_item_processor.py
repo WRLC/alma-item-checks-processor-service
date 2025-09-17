@@ -316,87 +316,17 @@ class TestSCFItemProcessor:
         # Should not call storage service
         mock_storage_service_class.assert_not_called()
 
-    @patch('alma_item_checks_processor_service.services.scf_item_processor.StorageService')
-    @patch('alma_item_checks_processor_service.services.scf_item_processor.SessionMaker')
-    def test_no_row_tray_report_process_success(self, mock_session_maker, mock_storage_service_class):
-        """Test successful no_row_tray_report_process"""
-        mock_item = Mock()
-        mock_item.item_data.barcode = "12345"
-        mock_item.model_dump.return_value = {"test": "data"}
-        self.processor.parsed_item = {
-            "item_data": mock_item,
-            "institution_code": "test"
-        }
-
-        mock_session = Mock()
-        mock_session_maker.return_value.__enter__.return_value = mock_session
-
-        mock_institution_service = Mock()
-        mock_institution = Mock()
-        mock_institution.id = 1
-        mock_institution_service.get_institution_by_code.return_value = mock_institution
-
-        mock_storage_service = Mock()
-        mock_storage_service_class.return_value = mock_storage_service
-
-        with patch('alma_item_checks_processor_service.services.scf_item_processor.InstitutionService',
-                   return_value=mock_institution_service), \
-             patch.object(self.processor, 'generate_job_id', return_value="test_job_123"):
-
-            result = self.processor.no_row_tray_report_process()
-
-        assert result is True
-
-        # Verify storage operations
-        mock_storage_service.upload_blob_data.assert_called_once()
-        mock_storage_service.upsert_entity.assert_called_once()
-
-    @patch('alma_item_checks_processor_service.services.scf_item_processor.SessionMaker')
-    def test_no_row_tray_report_process_no_institution_code(self, mock_session_maker):
-        """Test no_row_tray_report_process with missing institution code"""
-        mock_item = Mock()
-        mock_item.item_data.barcode = "12345"
-        self.processor.parsed_item = {
-            "item_data": mock_item,
-            "institution_code": None
-        }
-
-        with patch('alma_item_checks_processor_service.services.scf_item_processor.logging'):
-            result = self.processor.no_row_tray_report_process()
-
-        assert result is False
-
-    @patch('alma_item_checks_processor_service.services.scf_item_processor.SessionMaker')
-    def test_no_row_tray_report_process_institution_not_found(self, mock_session_maker):
-        """Test no_row_tray_report_process when institution not found"""
-        mock_item = Mock()
-        mock_item.item_data.barcode = "12345"
-        self.processor.parsed_item = {
-            "item_data": mock_item,
-            "institution_code": "test"
-        }
-
-        mock_session = Mock()
-        mock_session_maker.return_value.__enter__.return_value = mock_session
-
-        mock_institution_service = Mock()
-        mock_institution_service.get_institution_by_code.return_value = None
-
-        with patch('alma_item_checks_processor_service.services.scf_item_processor.InstitutionService',
-                   return_value=mock_institution_service), \
-             patch('alma_item_checks_processor_service.services.scf_item_processor.logging'):
-
-            result = self.processor.no_row_tray_report_process()
-
-        assert result is False
 
     @patch('alma_item_checks_processor_service.services.scf_item_processor.StorageService')
     @patch('alma_item_checks_processor_service.services.scf_item_processor.SessionMaker')
     def test_withdrawn_process_success(self, mock_session_maker, mock_storage_service_class):
         """Test successful withdrawn_process"""
         mock_item = Mock()
+        mock_item.bib_data.title = "Test Title"
         mock_item.item_data.barcode = "12345"
-        mock_item.model_dump.return_value = {"test": "data"}
+        mock_item.item_data.alternative_call_number = "WD"
+        mock_item.item_data.internal_note_1 = "Test Note"
+        mock_item.item_data.provenance.desc = "Test Provenance"
         self.processor.parsed_item = {
             "item_data": mock_item,
             "institution_code": "test"
@@ -419,8 +349,13 @@ class TestSCFItemProcessor:
 
             self.processor.withdrawn_process()
 
-        # Verify storage operations
+        # Verify storage operations - now uploads to REPORTS_CONTAINER
         mock_storage_service.upload_blob_data.assert_called_once()
+        call_args = mock_storage_service.upload_blob_data.call_args
+        # Note: uses default value since import happens before test env variables are set
+        assert 'container_name' in call_args[1]
+        assert call_args[1]['blob_name'] == 'test_job_123.json'
+
         mock_storage_service.send_queue_message.assert_called_once()
 
     def test_should_process_with_no_row_tray_data(self):
@@ -470,72 +405,6 @@ class TestSCFItemProcessor:
 
         mock_storage_service.send_queue_message.assert_not_called()
 
-    @patch('alma_item_checks_processor_service.services.scf_item_processor.StorageService')
-    @patch('alma_item_checks_processor_service.services.scf_item_processor.SessionMaker')
-    def test_no_row_tray_report_process_blob_upload_error(self, mock_session_maker, mock_storage_service_class):
-        """Test no_row_tray_report_process with blob upload error"""
-        mock_item = Mock()
-        mock_item.item_data.barcode = "12345"
-        mock_item.model_dump.return_value = {"test": "data"}
-        self.processor.parsed_item = {
-            "item_data": mock_item,
-            "institution_code": "test"
-        }
-
-        mock_session = Mock()
-        mock_session_maker.return_value.__enter__.return_value = mock_session
-
-        mock_institution_service = Mock()
-        mock_institution = Mock()
-        mock_institution.id = 1
-        mock_institution_service.get_institution_by_code.return_value = mock_institution
-
-        mock_storage_service = Mock()
-        mock_storage_service.upload_blob_data.side_effect = ValueError("Upload failed")
-        mock_storage_service_class.return_value = mock_storage_service
-
-        with patch('alma_item_checks_processor_service.services.scf_item_processor.InstitutionService',
-                   return_value=mock_institution_service), \
-             patch.object(self.processor, 'generate_job_id', return_value="test_job_123"):
-
-            result = self.processor.no_row_tray_report_process()
-
-        # Should return False due to upload failure
-        assert result is False
-        mock_storage_service.upsert_entity.assert_not_called()
-
-    @patch('alma_item_checks_processor_service.services.scf_item_processor.StorageService')
-    @patch('alma_item_checks_processor_service.services.scf_item_processor.SessionMaker')
-    def test_no_row_tray_report_process_upsert_error(self, mock_session_maker, mock_storage_service_class):
-        """Test no_row_tray_report_process with upsert error"""
-        mock_item = Mock()
-        mock_item.item_data.barcode = "12345"
-        mock_item.model_dump.return_value = {"test": "data"}
-        self.processor.parsed_item = {
-            "item_data": mock_item,
-            "institution_code": "test"
-        }
-
-        mock_session = Mock()
-        mock_session_maker.return_value.__enter__.return_value = mock_session
-
-        mock_institution_service = Mock()
-        mock_institution = Mock()
-        mock_institution.id = 1
-        mock_institution_service.get_institution_by_code.return_value = mock_institution
-
-        mock_storage_service = Mock()
-        mock_storage_service.upsert_entity.side_effect = TypeError("Upsert failed")
-        mock_storage_service_class.return_value = mock_storage_service
-
-        with patch('alma_item_checks_processor_service.services.scf_item_processor.InstitutionService',
-                   return_value=mock_institution_service), \
-             patch.object(self.processor, 'generate_job_id', return_value="test_job_123"):
-
-            result = self.processor.no_row_tray_report_process()
-
-        # Should return False due to upsert failure
-        assert result is False
 
     @patch('alma_item_checks_processor_service.services.scf_item_processor.StorageService')
     @patch('alma_item_checks_processor_service.services.scf_item_processor.SessionMaker')
@@ -615,8 +484,11 @@ class TestSCFItemProcessor:
     def test_withdrawn_process_blob_upload_error(self, mock_session_maker, mock_storage_service_class):
         """Test withdrawn_process with blob upload error"""
         mock_item = Mock()
+        mock_item.bib_data.title = "Test Title"
         mock_item.item_data.barcode = "12345"
-        mock_item.model_dump.return_value = {"test": "data"}
+        mock_item.item_data.alternative_call_number = "WD"
+        mock_item.item_data.internal_note_1 = "Test Note"
+        mock_item.item_data.provenance.desc = "Test Provenance"
         self.processor.parsed_item = {
             "item_data": mock_item,
             "institution_code": "test"
@@ -648,8 +520,11 @@ class TestSCFItemProcessor:
     def test_withdrawn_process_queue_send_error(self, mock_session_maker, mock_storage_service_class):
         """Test withdrawn_process with queue send error"""
         mock_item = Mock()
+        mock_item.bib_data.title = "Test Title"
         mock_item.item_data.barcode = "12345"
-        mock_item.model_dump.return_value = {"test": "data"}
+        mock_item.item_data.alternative_call_number = "WD"
+        mock_item.item_data.internal_note_1 = "Test Note"
+        mock_item.item_data.provenance.desc = "Test Provenance"
         self.processor.parsed_item = {
             "item_data": mock_item,
             "institution_code": "test"
@@ -675,4 +550,51 @@ class TestSCFItemProcessor:
 
         # Should handle queue send error
         mock_storage_service.upload_blob_data.assert_called_once()
+        mock_storage_service.send_queue_message.assert_called_once()
+
+    @patch('alma_item_checks_processor_service.services.scf_item_processor.StorageService')
+    @patch('alma_item_checks_processor_service.services.scf_item_processor.SessionMaker')
+    def test_withdrawn_process_with_none_values(self, mock_session_maker, mock_storage_service_class):
+        """Test withdrawn_process handles None values in item fields"""
+        mock_item = Mock()
+        mock_item.bib_data.title = None
+        mock_item.item_data.barcode = "12345"
+        mock_item.item_data.alternative_call_number = None
+        mock_item.item_data.internal_note_1 = None
+        mock_item.item_data.provenance = None
+        self.processor.parsed_item = {
+            "item_data": mock_item,
+            "institution_code": "test"
+        }
+
+        mock_session = Mock()
+        mock_session_maker.return_value.__enter__.return_value = mock_session
+
+        mock_institution_service = Mock()
+        mock_institution = Mock()
+        mock_institution.id = 1
+        mock_institution_service.get_institution_by_code.return_value = mock_institution
+
+        mock_storage_service = Mock()
+        mock_storage_service_class.return_value = mock_storage_service
+
+        with patch('alma_item_checks_processor_service.services.scf_item_processor.InstitutionService',
+                   return_value=mock_institution_service), \
+             patch.object(self.processor, 'generate_job_id', return_value="test_job_123"):
+
+            self.processor.withdrawn_process()
+
+        # Verify storage operations work with None values converted to empty strings
+        mock_storage_service.upload_blob_data.assert_called_once()
+        call_args = mock_storage_service.upload_blob_data.call_args
+
+        # Verify blob data contains empty strings for None values
+        import json
+        blob_data = json.loads(call_args[1]['data'].decode())
+        assert blob_data["Title"] == ""
+        assert blob_data["Barcode"] == "12345"
+        assert blob_data["Item Call Number"] == ""
+        assert blob_data["Internal Note 1"] == ""
+        assert blob_data["Provenance Code"] == ""
+
         mock_storage_service.send_queue_message.assert_called_once()
