@@ -58,6 +58,7 @@ azurite-data
 *.log
 
 .coverage
+htmlcov/
 
 CLAUDE.md
 .claude
