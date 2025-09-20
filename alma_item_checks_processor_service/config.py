@@ -7,7 +7,7 @@ STORAGE_CONNECTION_STRING = os.getenv(STORAGE_CONNECTION_SETTING_NAME)
 
 SQLALCHEMY_CONNECTION_STRING = os.getenv("SQLALCHEMY_CONNECTION_STRING")
 
-FETCH_ITEM_QUEUE = os.getenv("FETCH_QUEUE", "fetch-item-queue")
+FETCH_ITEM_QUEUE = os.getenv("FETCH_ITEM_QUEUE", "fetch-queue")
 UPDATE_QUEUE = os.getenv(
     "UPDATE_QUEUE", "update-queue"
 )  # For items that need Alma updates
