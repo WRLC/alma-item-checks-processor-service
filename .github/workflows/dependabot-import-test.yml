@@ -42,7 +42,7 @@ jobs:
         echo "function_app_python_version=$PYTHON_VERSION" >> $GITHUB_OUTPUT
 
   test-imports:
-    if: github.actor == 'dependabot[bot]' && contains(github.event.pull_request.labels.*.name, 'python')
+    if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     needs: terraform-outputs
 
