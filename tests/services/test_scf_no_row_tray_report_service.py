@@ -125,7 +125,6 @@ class TestSCFNoRowTrayReportService:
         mock_base_item_processor.retrieve_item_by_barcode.return_value = mock_item
         mock_processor_instance = mock_scf_item_processor.return_value
         mock_processor_instance.no_row_tray_should_process.return_value = True
-        mock_processor_instance.no_row_tray_report_process.return_value = True
 
         result = self.service._process_single_item('123')
 
@@ -157,21 +156,6 @@ class TestSCFNoRowTrayReportService:
         assert result['success'] is False
         assert result['reason'] == 'No longer meets processing criteria'
 
-    @patch('alma_item_checks_processor_service.services.scf_no_row_tray_report_service.BaseItemProcessor')
-    @patch('alma_item_checks_processor_service.services.scf_no_row_tray_report_service.SCFItemProcessor')
-    def test_process_single_item_processing_failed(self, mock_scf_item_processor, mock_base_item_processor):
-        """Test _process_single_item when processing fails"""
-        self.service.scf_institution = Mock()
-        mock_item = Mock()
-        mock_base_item_processor.retrieve_item_by_barcode.return_value = mock_item
-        mock_processor_instance = mock_scf_item_processor.return_value
-        mock_processor_instance.no_row_tray_should_process.return_value = True
-        mock_processor_instance.no_row_tray_report_process.return_value = False
-
-        result = self.service._process_single_item('123')
-
-        assert result['success'] is False
-        assert result['reason'] == 'Processing failed'
 
     def test_process_single_item_no_institution(self):
         """Test _process_single_item when scf_institution is None"""
@@ -211,9 +195,9 @@ class TestSCFNoRowTrayReportService:
         mock_datetime.now.return_value = mock_now
         self.service.scf_institution = Institution(id=1, code='scf', name='SCF')
 
-        report_id = self.service._generate_report(1, [], [])
+        job_id = self.service._generate_report(1, [], [])
 
-        assert report_id == 'scf_no_row_tray_report_20250101_120000'
+        assert job_id == 'scf_no_row_tray_report_20250101_120000'
         self.service.storage_service.upload_blob_data.assert_called_once()
 
     @patch('alma_item_checks_processor_service.services.scf_no_row_tray_report_service.datetime')
@@ -226,15 +210,15 @@ class TestSCFNoRowTrayReportService:
         self.service.scf_institution = Institution(id=1, code='scf', name='SCF')
         self.service.storage_service.upload_blob_data.side_effect = Exception("Test Exception")
 
-        report_id = self.service._generate_report(1, [], [])
+        job_id = self.service._generate_report(1, [], [])
 
-        assert report_id is None
+        assert job_id is None
 
     def test_send_notification(self):
         """Test _send_notification method"""
         self.service.scf_institution = Institution(id=1, code='scf', name='SCF')
 
-        self.service._send_notification('report_id')
+        self.service._send_notification('job_id')
 
         self.service.storage_service.send_queue_message.assert_called_once()
 
@@ -243,7 +227,7 @@ class TestSCFNoRowTrayReportService:
         self.service.scf_institution = Institution(id=1, code='scf', name='SCF')
         self.service.storage_service.send_queue_message.side_effect = Exception("Test Exception")
 
-        self.service._send_notification('report_id')
+        self.service._send_notification('job_id')
 
         self.service.storage_service.send_queue_message.assert_called_once()
 
@@ -251,6 +235,6 @@ class TestSCFNoRowTrayReportService:
         """Test _send_notification method when scf_institution is None"""
         self.service.scf_institution = None
 
-        self.service._send_notification('report_id')
+        self.service._send_notification('job_id')
 
         self.service.storage_service.send_queue_message.assert_not_called()

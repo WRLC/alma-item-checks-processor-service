@@ -17,8 +17,12 @@ class InstitutionService:
 
         Args:
             code (str): The code of the institution
+
         Returns:
-            Institution: The institution object
+            Institution | None: The institution object if found, None otherwise
+
+        Raises:
+            SQLAlchemyError: If database query fails
         """
         institution: Institution | None = self.repository.get_institution_by_code(code)
 

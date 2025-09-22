@@ -10,7 +10,15 @@ _session_maker: sessionmaker | None = None
 
 
 def get_engine() -> Engine:
-    """Get database engine, creating it if necessary"""
+    """Get database engine, creating it if necessary
+
+    Returns:
+        Engine: SQLAlchemy database engine
+
+    Raises:
+        ValueError: If SQLALCHEMY_CONNECTION_STRING environment variable is not set
+        sqlalchemy.exc.SQLAlchemyError: If database engine creation fails
+    """
     global _db_engine
     if _db_engine is None:
         if SQLALCHEMY_CONNECTION_STRING is None:
@@ -24,7 +32,15 @@ def get_engine() -> Engine:
 
 
 def get_session_maker() -> sessionmaker:
-    """Get session maker, creating it if necessary"""
+    """Get session maker, creating it if necessary
+
+    Returns:
+        sessionmaker: SQLAlchemy session maker factory
+
+    Raises:
+        ValueError: If SQLALCHEMY_CONNECTION_STRING environment variable is not set
+        sqlalchemy.exc.SQLAlchemyError: If database engine creation fails
+    """
     global _session_maker
     if _session_maker is None:
         _session_maker = sessionmaker(bind=get_engine())
@@ -33,5 +49,13 @@ def get_session_maker() -> sessionmaker:
 
 # For backward compatibility - lazy loading
 def SessionMaker():
-    """Lazy-loaded session maker"""
+    """Lazy-loaded session maker
+
+    Returns:
+        Session: SQLAlchemy database session
+
+    Raises:
+        ValueError: If SQLALCHEMY_CONNECTION_STRING environment variable is not set
+        sqlalchemy.exc.SQLAlchemyError: If database engine creation or session creation fails
+    """
     return get_session_maker()()

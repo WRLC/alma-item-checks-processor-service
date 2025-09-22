@@ -8,12 +8,21 @@
       }
     },
     "logLevel": {
-      "default": "Warning",
-      "alma_item_checks_processor_service": "Information"
+      "default": "Warning"
     }
   },
   "extensionBundle": {
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
     "version": "[4.*, 5.0.0)"
-  }
+  },
+  "extensions": {
+    "queues": {
+      "batchSize": 1,
+      "maxDequeueCount": 5,
+      "newBatchThreshold": 8,
+      "maxPollingInterval": "00:00:30"
+    }
+  },
+  "functionTimeout": "00:05:00",
+  "maxConcurrentRequests": 10
 }

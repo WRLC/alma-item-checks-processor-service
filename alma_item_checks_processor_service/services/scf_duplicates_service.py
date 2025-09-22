@@ -44,7 +44,7 @@ class ScfDuplicatesService:
             logging.error("Neither SCF nor scf-psb institution found in database")
             return
 
-        report_id: str = f"scf_duplicate_report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        job_id: str = f"scf_duplicate_report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
         alma_client: AlmaApiClient = AlmaApiClient(
             institution.api_key, "NA", timeout=250
         )  # get Alma client
@@ -54,11 +54,11 @@ class ScfDuplicatesService:
                 institution.duplicate_report_path
             )
         except Exception as e:
-            logging.error(f"Job {report_id}: Error retrieving report: {e}")
+            logging.error(f"Job {job_id}: Error retrieving report: {e}")
             return
 
         if not report.rows:
-            logging.info(f"Job {report_id}: No results found.")
+            logging.info(f"Job {job_id}: No results found.")
             return
 
         storage_service = StorageService(
@@ -67,12 +67,12 @@ class ScfDuplicatesService:
 
         storage_service.upload_blob_data(  # upload report to notifier container
             container_name=REPORTS_CONTAINER,
-            blob_name=f"{report_id}.json",
+            blob_name=f"{job_id}.json",
             data=json.dumps(report.rows).encode(),
         )
 
         notification_message: dict[str, Any] = {
-            "report_id": report_id,
+            "job_id": job_id,
             "institution_id": institution.id,
             "process_type": "scf_duplicates",
         }

@@ -38,42 +38,34 @@ class ProcessorService:
         """Get item by barcode
 
         Returns:
-            Item: The item data if found, None otherwise
+            dict[str, Any] | None: The item data with institution code if found, None otherwise
+
+        Raises:
+            ValueError: If barcode retrieval data parsing fails
+            SQLAlchemyError: If database queries fail
+            AlmaApiError: If Alma API calls fail
+            RequestException: If network requests fail
         """
         try:
-            self.logger.info("🔍 TRACE: ProcessorService.get_item_by_barcode started")
-
             barcode_retrieval_data: dict[str, Any] | None = (
                 self.get_barcode_retrieval_data()
             )  # parse message
-            self.logger.info(f"📨 TRACE: Parsed message data: {barcode_retrieval_data}")
 
             if not barcode_retrieval_data:
-                self.logger.warning(
-                    "❌ TRACE: No barcode retrieval data, returning None"
-                )
                 return None
 
             inst: Institution | None = self.get_institution(  # get institution object
                 barcode_retrieval_data.get("institution_code")  # type: ignore
             )
-            self.logger.info(
-                f"🏢 TRACE: Retrieved institution: {inst.code if inst else None}"
-            )
 
             if not inst:  # if no institution or barcode, return nothing
-                self.logger.warning("❌ TRACE: No institution found, returning None")
                 return None
 
             barcode = barcode_retrieval_data.get("barcode")
-            self.logger.info(f"📚 TRACE: Calling Alma API for barcode: {barcode}")
 
             item: Item | None = BaseItemProcessor.retrieve_item_by_barcode(
                 inst,
                 barcode,  # type: ignore
-            )
-            self.logger.info(
-                f"📋 TRACE: Alma API returned item: {bool(item)} (MMS ID: {item.bib_data.mms_id if item and item.bib_data else 'None'})"
             )
 
             parsed_item: dict[str, Any] | None = {
@@ -85,7 +77,7 @@ class ProcessorService:
 
         except Exception as e:
             self.logger.error(
-                f"💥 TRACE ERROR: get_item_by_barcode failed: {type(e).__name__}: {e}",
+                f"get_item_by_barcode failed: {type(e).__name__}: {e}",
                 exc_info=True,
             )
             raise
@@ -100,45 +92,39 @@ class ProcessorService:
 
         Returns:
             list[str] | None: list of checks to run or False if none
+
+        Raises:
+            ValueError: If item data validation fails
+            KeyError: If required item data fields are missing
         """
         try:
             iz: str | None = parsed_item.get("institution_code")  # get IZ code
-            self.logger.info(f"🏢 TRACE: should_process for institution: {iz}")
 
             if iz is None:
-                self.logger.warning("❌ TRACE: No institution code, returning None")
                 return None
 
             if iz.lower() in ["scf", "scf-psb"]:  # if IZ is SCF, use SCF check
-                self.logger.info("🏭 TRACE: Using SCF processor")
                 scf_processor = SCFItemProcessor(parsed_item)
                 should_process: list[str] | bool = scf_processor.should_process()
-                self.logger.info(
-                    f"🔍 TRACE: SCF should_process result: {should_process}"
-                )
 
                 if (
                     not should_process
                 ):  # If doesn't meet SCF check criteria, don't process
-                    self.logger.info("⏭️ TRACE: SCF processor says no processing needed")
                     return None
 
                 return should_process
 
-            self.logger.info("🏛️ TRACE: Using IZ processor")
             iz_processor = IZItemProcessor(parsed_item)
             should_process: list[str] | bool = iz_processor.should_process()  # type: ignore # if not SCF, use IZ check
-            self.logger.info(f"🔍 TRACE: IZ should_process result: {should_process}")
 
             if not should_process:  # If doesn't meet IZ check criteria, don't process
-                self.logger.info("⏭️ TRACE: IZ processor says no processing needed")
                 return None
 
             return should_process
 
         except Exception as e:
             self.logger.error(
-                f"💥 TRACE ERROR: should_process failed: {type(e).__name__}: {e}",
+                f"should_process failed: {type(e).__name__}: {e}",
                 exc_info=True,
             )
             raise
@@ -149,37 +135,45 @@ class ProcessorService:
         Args:
             parsed_item (dict[str, Any]): Item data
             processes (list[str]): List of processes to run
+
+        Raises:
+            ValueError: If item data validation fails
+            KeyError: If required item data fields are missing
+            SQLAlchemyError: If database operations fail
+            azure.core.exceptions.ServiceRequestError: If Azure storage operations fail
+            AlmaApiError: If Alma API calls fail
+            RequestException: If network requests fail
         """
         try:
             iz: str | None = parsed_item.get("institution_code")  # get IZ code
-            self.logger.info(
-                f"🔧 TRACE: ProcessorService.process starting for {iz} with processes: {processes}"
-            )
 
             if iz is None:
-                self.logger.warning("❌ TRACE: No institution code in process method")
                 return
 
             if iz.lower() in ["scf", "scf-psb"]:  # If SCF IZ
-                self.logger.info("🏭 TRACE: Running SCF processor.process()")
                 scf_processor = SCFItemProcessor(parsed_item)
                 scf_processor.process(processes)  # run SCF processes
-                self.logger.info("✅ TRACE: SCF processor.process() completed")
             else:
-                self.logger.info("🏛️ TRACE: Running IZ processor.process()")
                 iz_processor = IZItemProcessor(parsed_item)
                 iz_processor.process(processes)
-                self.logger.info("✅ TRACE: IZ processor.process() completed")
 
         except Exception as e:
             self.logger.error(
-                f"💥 TRACE ERROR: process failed: {type(e).__name__}: {e}",
+                f"process failed: {type(e).__name__}: {e}",
                 exc_info=True,
             )
             raise
 
     def get_barcode_retrieval_data(self) -> dict[str, Any] | None:
-        """Parse fetch item queue message"""
+        """Parse fetch item queue message
+
+        Returns:
+            dict[str, Any] | None: Parsed message data with institution_code and barcode, None if invalid
+
+        Raises:
+            json.JSONDecodeError: If message body is not valid JSON
+            UnicodeDecodeError: If message body cannot be decoded
+        """
         message_data: dict[str, Any] = json.loads(
             self.barcodemsg.get_body().decode()
         )  # get barcode data

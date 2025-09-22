@@ -400,6 +400,118 @@ class TestIZItemProcessor:
         mock_storage_service.upload_blob_data.assert_called_once()
         mock_storage_service.send_queue_message.assert_called_once()
 
+    @patch('alma_item_checks_processor_service.services.iz_item_processor.StorageService')
+    def test_handle_successful_update_no_institution_code(self, mock_storage_service_class):
+        """Test _handle_successful_update with no institution code"""
+        mock_item = Mock()
+
+        # Set parsed_item to have no institution code
+        processor = IZItemProcessor({"institution_code": None, "item_data": mock_item})
+
+        with patch('alma_item_checks_processor_service.services.iz_item_processor.logging') as mock_logging:
+            processor._handle_successful_update(mock_item, "iz_no_row_tray")
+
+        # Should log error and return early
+        mock_logging.error.assert_called()
+        mock_storage_service_class.assert_not_called()
+
+    @patch('alma_item_checks_processor_service.services.iz_item_processor.StorageService')
+    def test_handle_successful_update_blob_upload_error(self, mock_storage_service_class):
+        """Test _handle_successful_update with blob upload error"""
+        mock_item = Mock()
+        mock_item.item_data.barcode = "12345"
+        mock_item.model_dump.return_value = {"test": "data"}
+
+        mock_storage_service = Mock()
+        mock_storage_service.upload_blob_data.side_effect = ValueError("Upload failed")
+        mock_storage_service_class.return_value = mock_storage_service
+
+        with patch.object(self.processor, 'generate_job_id', return_value="test_job_123"), \
+             patch('alma_item_checks_processor_service.services.iz_item_processor.logging') as mock_logging:
+
+            self.processor._handle_successful_update(mock_item, "iz_no_row_tray")
+
+        # Should log error and return early
+        mock_logging.error.assert_called()
+        mock_storage_service.send_queue_message.assert_not_called()
+
+    @patch('alma_item_checks_processor_service.services.iz_item_processor.StorageService')
+    @patch('alma_item_checks_processor_service.services.iz_item_processor.SessionMaker')
+    def test_handle_successful_update_institution_not_found(self, mock_session_maker, mock_storage_service_class):
+        """Test _handle_successful_update when institution not found in database"""
+        mock_item = Mock()
+        mock_item.item_data.barcode = "12345"
+        mock_item.model_dump.return_value = {"test": "data"}
+
+        mock_session = Mock()
+        mock_session_maker.return_value.__enter__.return_value = mock_session
+
+        mock_institution_service = Mock()
+        mock_institution_service.get_institution_by_code.return_value = None
+
+        mock_storage_service = Mock()
+        mock_storage_service_class.return_value = mock_storage_service
+
+        with patch('alma_item_checks_processor_service.services.iz_item_processor.InstitutionService',
+                   return_value=mock_institution_service), \
+             patch.object(self.processor, 'generate_job_id', return_value="test_job_123"), \
+             patch('alma_item_checks_processor_service.services.iz_item_processor.logging') as mock_logging:
+
+            self.processor._handle_successful_update(mock_item, "iz_no_row_tray")
+
+        # Should log error and return early
+        mock_logging.error.assert_called()
+        mock_storage_service.send_queue_message.assert_not_called()
+
+    @patch('alma_item_checks_processor_service.services.iz_item_processor.StorageService')
+    @patch('alma_item_checks_processor_service.services.iz_item_processor.SessionMaker')
+    def test_handle_successful_update_queue_send_error(self, mock_session_maker, mock_storage_service_class):
+        """Test _handle_successful_update with queue send error"""
+        mock_item = Mock()
+        mock_item.item_data.barcode = "12345"
+        mock_item.model_dump.return_value = {"test": "data"}
+
+        mock_session = Mock()
+        mock_session_maker.return_value.__enter__.return_value = mock_session
+
+        mock_institution_service = Mock()
+        mock_institution = Mock()
+        mock_institution.id = 1
+        mock_institution_service.get_institution_by_code.return_value = mock_institution
+
+        mock_storage_service = Mock()
+        mock_storage_service.send_queue_message.side_effect = TypeError("Queue failed")
+        mock_storage_service_class.return_value = mock_storage_service
+
+        with patch('alma_item_checks_processor_service.services.iz_item_processor.InstitutionService',
+                   return_value=mock_institution_service), \
+             patch.object(self.processor, 'generate_job_id', return_value="test_job_123"), \
+             patch('alma_item_checks_processor_service.services.iz_item_processor.logging') as mock_logging:
+
+            self.processor._handle_successful_update(mock_item, "iz_no_row_tray")
+
+        # Should log error for queue send failure
+        mock_logging.error.assert_called()
+        mock_storage_service.upload_blob_data.assert_called_once()
+        mock_storage_service.send_queue_message.assert_called_once()
+
+    def test_update_iz_item_with_scf_data_exception(self):
+        """Test _update_iz_item_with_scf_data handles exceptions"""
+        # Create mock items - make the SCF data evaluation cause an exception
+        iz_item = Mock()
+
+        scf_item = Mock()
+        # Make the boolean evaluation or string access raise an exception
+        scf_item.item_data.alternative_call_number = Mock()
+        scf_item.item_data.alternative_call_number.__bool__ = Mock(side_effect=Exception("Test error"))
+
+        with patch('alma_item_checks_processor_service.services.iz_item_processor.logging') as mock_logging:
+            result = self.processor._update_iz_item_with_scf_data(iz_item, scf_item)
+
+        # Should return False and log error
+        assert result is False
+        mock_logging.error.assert_called()
+
     def test_update_iz_item_with_scf_data_success(self):
         """Test successful IZ item update with SCF data"""
         mock_iz_item = Mock()

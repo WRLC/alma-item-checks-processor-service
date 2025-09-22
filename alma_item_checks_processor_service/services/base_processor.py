@@ -28,17 +28,16 @@ class BaseItemProcessor(ABC):
 
         Returns:
             bool: True if SCF should be processed, False otherwise
+
+        Raises:
+            KeyError: If required item data fields are missing
+            AttributeError: If item data structure is invalid
         """
         item: Item = self.parsed_item.get("item_data")
         alt_call_number: str | None = (
             item.item_data.alternative_call_number
         )  # get alt call number
         barcode: str = item.item_data.barcode
-
-        logging.info(f"📊 TRACE: no_row_tray_data - barcode: {barcode}")
-        logging.info(
-            f"📊 TRACE: no_row_tray_data - alternative_call_number: '{alt_call_number}' (type: {type(alt_call_number)})"
-        )
 
         if alt_call_number is None or (
             isinstance(alt_call_number, str) and alt_call_number.strip() == ""
@@ -56,8 +55,15 @@ class BaseItemProcessor(ABC):
     def wrong_row_tray_data(self, iz: str) -> bool:
         """Check if SCF item has wrong row/tray data
 
+        Args:
+            iz (str): Institution zone code
+
         Returns:
             bool: True if SCF should be processed, False otherwise
+
+        Raises:
+            KeyError: If required item data fields are missing
+            AttributeError: If item data structure is invalid
         """
         item: Item = self.parsed_item.get("item_data")
         barcode: str = item.item_data.barcode
@@ -123,57 +129,48 @@ class BaseItemProcessor(ABC):
 
         Returns:
             Item | None: The item if found, None otherwise
+
+        Raises:
+            AlmaApiError: If Alma API returns an error response
+            RequestException: If network request fails after all retries
+            ValueError: If institution API key is invalid
         """
         logger = logging.getLogger(__name__)
-        logger.info(
-            f"🌐 TRACE: Starting Alma API call for barcode: {barcode} (institution: {institution.code})"
-        )
-
         alma_client: AlmaApiClient = AlmaApiClient(
             api_key=str(institution.api_key), region="NA", timeout=API_CLIENT_TIMEOUT
-        )
-        logger.info(
-            f"🔗 TRACE: AlmaApiClient created with timeout: {API_CLIENT_TIMEOUT}s"
         )
 
         item_data: Item | None = None
 
         for attempt in range(max_retries):
             try:
-                logger.info(
-                    f"🔄 TRACE: Attempt {attempt + 1}/{max_retries} calling alma_client.items.get_item_by_barcode"
-                )
                 item_data = alma_client.items.get_item_by_barcode(barcode)
-                logger.info(
-                    f"✅ TRACE: Alma API success - got item with MMS ID: {item_data.bib_data.mms_id if item_data and item_data.bib_data else 'None'}"
-                )
                 break  # Success, exit the loop
             except RequestException as e:  # Catches timeouts, connection errors, etc.
                 logger.warning(
-                    f"🌐 TRACE: Attempt {attempt + 1}/{max_retries} to get item {barcode} "
+                    f"Attempt {attempt + 1}/{max_retries} to get item {barcode} "
                     f"failed with a network error: {e}"
                 )
                 if (
                     attempt < max_retries - 1
                 ):  # If there are retries left, wait and retry
                     wait_time = 2 * (attempt + 1)
-                    logger.info(f"⏳ TRACE: Waiting {wait_time}s before retry...")
                     time.sleep(wait_time)  # Wait 2, then 4 seconds before retrying
                 else:
                     logger.error(
-                        f"💥 TRACE: All {max_retries} retry attempts failed for barcode {barcode}. "
+                        f"All {max_retries} retry attempts failed for barcode {barcode}. "
                         f"Skipping processing."
                     )
                     return None
             except AlmaApiError as e:  # If non-retriable API error (e.g., 404 Not Found), log and return nothing
                 logger.warning(
-                    f"🚫 TRACE: Error retrieving item {barcode} from Alma, skipping processing: {e}"
+                    f"Error retrieving item {barcode} from Alma, skipping processing: {e}"
                 )
                 return None
 
         if not item_data:
             logger.info(
-                f"🚫 TRACE: Item {barcode} not active in Alma, skipping further processing"
+                f"Item {barcode} not active in Alma, skipping further processing"
             )
             return None
 
