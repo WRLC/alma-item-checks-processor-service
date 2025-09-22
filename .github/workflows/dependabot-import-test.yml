@@ -14,7 +14,7 @@ env:
 
 jobs:
   terraform-outputs:
-    if: github.actor == 'dependabot[bot]'
+    if: github.actor == 'dependabot[bot]' && contains(github.event.pull_request.labels.*.name, 'python')
     runs-on: ubuntu-latest
     outputs:
       python_version: ${{ steps.get_outputs.outputs.function_app_python_version }}
