@@ -5,6 +5,7 @@ import logging
 from typing import Any
 
 import azure.core.exceptions
+from azure.core.exceptions import ServiceRequestError
 from wrlc_alma_api_client.models import Item  # type: ignore
 from wrlc_azure_storage_service import StorageService  # type: ignore
 
@@ -249,7 +250,7 @@ class SCFItemProcessor(BaseItemProcessor):
             logging.info(
                 f"Successfully added entity for barcode {barcode} to {SCF_NO_ROW_TRAY_STAGE_TABLE}"
             )
-        except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError) as e:
+        except (ValueError, TypeError, ServiceRequestError) as e:
             logging.error(
                 f"SCFItemProcessor.no_row_tray_process: Failed to upsert entity for barcode {barcode}: {e}"
             )
