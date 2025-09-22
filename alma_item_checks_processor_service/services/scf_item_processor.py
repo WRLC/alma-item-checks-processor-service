@@ -5,7 +5,6 @@ import logging
 from typing import Any
 
 import azure.core.exceptions
-from azure.core.exceptions import ServiceRequestError
 from wrlc_alma_api_client.models import Item  # type: ignore
 from wrlc_azure_storage_service import StorageService  # type: ignore
 
@@ -227,6 +226,10 @@ class SCFItemProcessor(BaseItemProcessor):
         item: Item = self.parsed_item.get("item_data")  # get item object
         barcode: str = item.item_data.barcode  # get barcode
 
+        logging.info(
+            f"SCFItemProcessor.no_row_tray_process: Starting processing for barcode {barcode}"
+        )
+
         if not barcode:  # if no barcode, log error and return
             logging.warning(
                 "No barcode found for SCF item with missing or incorrect row tray data"
@@ -238,9 +241,25 @@ class SCFItemProcessor(BaseItemProcessor):
             "RowKey": barcode,  # RowKey = barcode
         }
 
+        logging.info(
+            f"SCFItemProcessor.no_row_tray_process: Created entity with PartitionKey=scf_no_row_tray, "
+            f"RowKey={barcode}"
+        )
+        logging.info(
+            f"SCFItemProcessor.no_row_tray_process: Table name: {SCF_NO_ROW_TRAY_STAGE_TABLE}"
+        )
+        logging.info(
+            f"SCFItemProcessor.no_row_tray_process: Storage connection string configured: "
+            f"{STORAGE_CONNECTION_STRING is not None}"
+        )
+
         storage_service: StorageService = StorageService(
             storage_connection_string=STORAGE_CONNECTION_STRING
         )  # initialize storage service
+
+        logging.info(
+            "SCFItemProcessor.no_row_tray_process: StorageService initialized, attempting upsert"
+        )
 
         try:
             storage_service.upsert_entity(  # add barcode to staging table
@@ -250,7 +269,7 @@ class SCFItemProcessor(BaseItemProcessor):
             logging.info(
                 f"Successfully added entity for barcode {barcode} to {SCF_NO_ROW_TRAY_STAGE_TABLE}"
             )
-        except (ValueError, TypeError, ServiceRequestError) as e:
+        except Exception as e:
             logging.error(
                 f"SCFItemProcessor.no_row_tray_process: Failed to upsert entity for barcode {barcode}: {e}"
             )
