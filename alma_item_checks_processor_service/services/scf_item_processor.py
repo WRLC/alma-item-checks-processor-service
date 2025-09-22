@@ -241,10 +241,18 @@ class SCFItemProcessor(BaseItemProcessor):
             storage_connection_string=STORAGE_CONNECTION_STRING
         )  # initialize storage service
 
-        storage_service.upsert_entity(  # add barcode to staging table
-            table_name=SCF_NO_ROW_TRAY_STAGE_TABLE,  # staging table
-            entity=entity,  # barcode entity
-        )
+        try:
+            storage_service.upsert_entity(  # add barcode to staging table
+                table_name=SCF_NO_ROW_TRAY_STAGE_TABLE,  # staging table
+                entity=entity,  # barcode entity
+            )
+            logging.info(
+                f"Successfully added entity for barcode {barcode} to {SCF_NO_ROW_TRAY_STAGE_TABLE}"
+            )
+        except (ValueError, TypeError, azure.core.exceptions.ServiceRequestError) as e:
+            logging.error(
+                f"SCFItemProcessor.no_row_tray_process: Failed to upsert entity for barcode {barcode}: {e}"
+            )
 
     def withdrawn_should_process(self) -> bool:
         """Check if item has withdrawal data
