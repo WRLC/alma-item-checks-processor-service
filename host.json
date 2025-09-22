@@ -8,7 +8,7 @@
       }
     },
     "logLevel": {
-      "default": "Warning"
+      "default": "Information"
     }
   },
   "extensionBundle": {
@@ -24,5 +24,4 @@
     }
   },
   "functionTimeout": "00:05:00",
-  "maxConcurrentRequests": 10
 }
