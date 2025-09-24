@@ -8,22 +8,28 @@ permissions:
   id-token: write
   contents: read
 
-env:
-  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-  ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
-  ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
-  ARM_USE_OIDC: true
-  TF_VAR_tf_shared_resource_group_name: ${{ secrets.TF_STATE_RESOURCE_GROUP_NAME }}
-  TF_VAR_tf_shared_storage_account_name: ${{ secrets.TF_STATE_STORAGE_ACCOUNT_NAME }}
-  TF_VAR_tf_shared_container_name: ${{ secrets.TF_STATE_CONTAINER_NAME }}
-  TF_VAR_tf_shared_key: ${{ secrets.TF_STATE_KEY }}
-  TF_VAR_mysql_admin_username: ${{ secrets.MYSQL_ADMIN_USERNAME }}
-  TF_VAR_mysql_admin_password: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
-
 jobs:
   promote-to-production:
     runs-on: ubuntu-latest
     environment: production
+
+    env:
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_USE_OIDC: true
+      TF_WORKING_DIR: ./terraform
+      TF_STATE_RG: ${{ secrets.TF_STATE_RG }}
+      TF_STATE_SA: ${{ secrets.TF_STATE_SA }}
+      TF_STATE_CONTAINER: ${{ secrets.TF_STATE_CONTAINER }}
+      TF_STATE_KEY: ${{ secrets.TF_STATE_KEY }}
+      TF_VAR_tf_shared_resource_group_name: ${{ secrets.TF_STATE_RESOURCE_GROUP_NAME }}
+      TF_VAR_tf_shared_storage_account_name: ${{ secrets.TF_STATE_STORAGE_ACCOUNT_NAME }}
+      TF_VAR_tf_shared_container_name: ${{ secrets.TF_STATE_CONTAINER_NAME }}
+      TF_VAR_tf_shared_key: ${{ secrets.TF_STATE_KEY }}
+      TF_VAR_mysql_admin_username: ${{ secrets.MYSQL_ADMIN_USERNAME }}
+      TF_VAR_mysql_admin_password: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
+      AZURE_DEVOPS_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
 
     steps:
     - name: Checkout code
@@ -44,9 +50,9 @@ jobs:
     - name: Azure Login
       uses: azure/login@v2
       with:
-        client-id: ${{ secrets.ARM_CLIENT_ID }}
-        tenant-id: ${{ secrets.ARM_TENANT_ID }}
-        subscription-id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+        client-id: ${{ env.ARM_CLIENT_ID }}
+        tenant-id: ${{ env.ARM_TENANT_ID }}
+        subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
@@ -54,13 +60,13 @@ jobs:
         terraform_wrapper: false
 
     - name: Get Terraform outputs
-      working-directory: terraform
+      working-directory: ${{ env.TF_WORKING_DIR }}
       run: |
         terraform init \
-          -backend-config="resource_group_name=${{ secrets.TF_STATE_RG }}" \
-          -backend-config="storage_account_name=${{ secrets.TF_STATE_SA }}" \
-          -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
-          -backend-config="key=${{ secrets.TF_STATE_KEY }}"
+          -backend-config="resource_group_name=${{ env.TF_STATE_RG }}" \
+          -backend-config="storage_account_name=${{ env.TF_STATE_SA }}" \
+          -backend-config="container_name=${{ env.TF_STATE_CONTAINER }}" \
+          -backend-config="key=${{ env.TF_STATE_KEY }}"
 
         FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
         RG_NAME=$(terraform output -raw function_app_resource_group_name)
@@ -83,7 +89,7 @@ jobs:
           --target-slot "production"
 
     - name: Configure private repository authentication
-      run: poetry config http-basic.wrlc-python pat ${{ secrets.AZURE_DEVOPS_PAT }}
+      run: poetry config http-basic.wrlc-python pat ${{ env.AZURE_DEVOPS_PAT }}
 
     - name: Install Python dependencies for migration
       run: poetry install --only=main

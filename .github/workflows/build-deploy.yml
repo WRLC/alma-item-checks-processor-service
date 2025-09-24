@@ -24,18 +24,25 @@ env:
   ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
   ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
   ARM_USE_OIDC: true
-  TF_VAR_tf_shared_resource_group_name: ${{ secrets.TF_SHARED_RESOURCE_GROUP_NAME }}
-  TF_VAR_tf_shared_storage_account_name: ${{ secrets.TF_SHARED_STORAGE_ACCOUNT_NAME }}
-  TF_VAR_tf_shared_container_name: ${{ secrets.TF_SHARED_CONTAINER_NAME }}
-  TF_VAR_tf_shared_key: ${{ secrets.TF_SHARED_KEY }}
-  TF_VAR_mysql_admin_username: ${{ secrets.MYSQL_ADMIN_USER }}
-  TF_VAR_mysql_admin_password: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
-  TF_WORKING_DIR: ./terraform
 
 jobs:
   terraform:
     name: Terraform
     runs-on: ubuntu-latest
+
+    env:
+      TF_WORKING_DIR: ./terraform
+      TF_STATE_RG: ${{ secrets.TF_STATE_RG }}
+      TF_STATE_SA: ${{ secrets.TF_STATE_SA }}
+      TF_STATE_CONTAINER: ${{ secrets.TF_STATE_CONTAINER }}
+      TF_STATE_KEY: ${{ secrets.TF_STATE_KEY }}
+      TF_VAR_tf_shared_resource_group_name: ${{ secrets.TF_SHARED_RESOURCE_GROUP_NAME }}
+      TF_VAR_tf_shared_storage_account_name: ${{ secrets.TF_SHARED_STORAGE_ACCOUNT_NAME }}
+      TF_VAR_tf_shared_container_name: ${{ secrets.TF_SHARED_CONTAINER_NAME }}
+      TF_VAR_tf_shared_key: ${{ secrets.TF_SHARED_KEY }}
+      TF_VAR_mysql_admin_username: ${{ secrets.MYSQL_ADMIN_USER }}
+      TF_VAR_mysql_admin_password: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
+
     outputs:
       function_app_name: ${{ steps.get_outputs.outputs.function_app_name }}
       function_app_resource_group_name: ${{ steps.get_outputs.outputs.function_app_resource_group_name }}
@@ -62,10 +69,10 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           terraform init \
-            -backend-config="resource_group_name=${{ secrets.TF_STATE_RG }}" \
-            -backend-config="storage_account_name=${{ secrets.TF_STATE_SA }}" \
-            -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
-            -backend-config="key=${{ secrets.TF_STATE_KEY }}"
+            -backend-config="resource_group_name=${{ env.TF_STATE_RG }}" \
+            -backend-config="storage_account_name=${{ env.TF_STATE_SA }}" \
+            -backend-config="container_name=${{ env.TF_STATE_CONTAINER }}" \
+            -backend-config="key=${{ env.TF_STATE_KEY }}"
 
       - name: Terraform Apply
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -92,6 +99,7 @@ jobs:
 
     env:
       PYTHON_VERSION: ${{ needs.terraform.outputs.python_version }}
+      AZURE_DEVOPS_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
 
     steps:
       - name: Checkout Code
@@ -109,7 +117,7 @@ jobs:
         run: poetry config virtualenvs.in-project true
 
       - name: Configure private repository authentication
-        run: poetry config http-basic.wrlc-python pat ${{ secrets.AZURE_DEVOPS_PAT }}
+        run: poetry config http-basic.wrlc-python pat ${{ env.AZURE_DEVOPS_PAT }}
 
       - name: Build with Poetry
         run: poetry install --without dev
@@ -172,13 +180,14 @@ jobs:
           echo "Fetching database connection string from stage slot..."
           FUNCTION_APP_NAME="${{ env.FUNCTION_APP_NAME }}"
           RG_NAME="${{ env.FUNCTION_APP_RESOURCE_GROUP_NAME }}"
+          STAGE_SLOT_NAME="${{ env.STAGE_SLOT_NAME }}"
 
           echo "Using resource group: $RG_NAME"
           echo "Function app name: $FUNCTION_APP_NAME"
 
           SETTINGS=$(az functionapp config appsettings list \
             --name "$FUNCTION_APP_NAME" \
-            --slot "stage" \
+            --slot "$STAGE_SLOT_NAME" \
             --resource-group "$RG_NAME")
 
           CONNECTION_STRING=$(echo "$SETTINGS" | jq -r '.[] | select(.name=="SQLALCHEMY_CONNECTION_STRING") | .value')
