@@ -31,7 +31,6 @@ env:
   TF_VAR_mysql_admin_username: ${{ secrets.MYSQL_ADMIN_USER }}
   TF_VAR_mysql_admin_password: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
   TF_WORKING_DIR: ./terraform
-  PYTHON_VERSION: '3.12'
 
 jobs:
   terraform:
@@ -40,6 +39,7 @@ jobs:
     outputs:
       function_app_name: ${{ steps.get_outputs.outputs.function_app_name }}
       function_app_resource_group_name: ${{ steps.get_outputs.outputs.function_app_resource_group_name }}
+      python_version: ${{  }}
 
     steps:
       - name: Checkout Code
@@ -76,14 +76,20 @@ jobs:
         run: |
           APP_NAME=$(terraform output -raw function_app_name)
           RG_NAME=$(terraform output -raw function_app_resource_group_name)
+          PYTHON_VERSION=$(terraform output -raw python_version)
 
           echo "function_app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
           echo "function_app_resource_group_name=$RG_NAME" >> "$GITHUB_OUTPUT"
+          echo "python_version=$PYTHON_VERSION" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build Application
     runs-on: ubuntu-latest
     needs: terraform
+
+    env:
+      PYTHON_VERSION: ${{ needs.terraform.outputs.python_version }}
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
