@@ -103,7 +103,7 @@ class ProcessorService:
             if iz is None:
                 return None
 
-            if iz.lower() in ["scf", "scf-psb"]:  # if IZ is SCF, use SCF check
+            if iz == "01WRLC_SCF":  # if IZ is SCF, use SCF check
                 scf_processor = SCFItemProcessor(parsed_item)
                 should_process: list[str] | bool = scf_processor.should_process()
 
@@ -150,7 +150,7 @@ class ProcessorService:
             if iz is None:
                 return
 
-            if iz.lower() in ["scf", "scf-psb"]:  # If SCF IZ
+            if iz == "01WRLC_SCF":  # If SCF IZ
                 scf_processor = SCFItemProcessor(parsed_item)
                 scf_processor.process(processes)  # run SCF processes
             else:
