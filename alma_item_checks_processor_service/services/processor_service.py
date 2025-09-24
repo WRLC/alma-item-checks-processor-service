@@ -68,6 +68,9 @@ class ProcessorService:
                 barcode,  # type: ignore
             )
 
+            if not item:  # if no item found, return None
+                return None
+
             parsed_item: dict[str, Any] | None = {
                 "institution_code": inst.code,
                 "item_data": item,
