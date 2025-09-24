@@ -1,11 +1,28 @@
 version: 2
 updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    allow:
+      - dependency-type: "direct"
+        update-type: "version-update:semver-major"
+      - dependency-type: "indirect"
+        update-type: "version-update:semver-major"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
   - package-ecosystem: "terraform"
     directory: "/terraform"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
+      time: "07:00"
       timezone: "America/New_York"
     commit-message:
       prefix: "deps"
@@ -22,7 +39,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
+      time: "07:00"
       timezone: "America/New_York"
     commit-message:
       prefix: "deps"
