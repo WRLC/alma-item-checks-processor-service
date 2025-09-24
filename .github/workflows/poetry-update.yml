@@ -66,7 +66,7 @@ jobs:
       PYTHON_VERSION: ${{ needs.get-terraform-outputs.outputs.python_version }}
 
     steps:
-      - uses: webfactory/ssh-agent@v0.9
+      - uses: webfactory/ssh-agent@v0.9.1
         with:
           ssh-private-key: ${{ secrets.AZURE_DEVOPS_SSH_KEY }}
 
