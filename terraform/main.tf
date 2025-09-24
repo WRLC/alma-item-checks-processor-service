@@ -133,8 +133,6 @@ resource "azurerm_linux_function_app" "function_app" {
     "AzureWebJobs.process_scf_no_row_tray_report.Disabled"                         = "false"
     "AzureWebJobs.process_scf_duplicates_report.Disabled"                          = "false"
     "AzureWebJobs.process_item_data.Disabled"                                      = "false"
-    "AzureFunctionsJobHost__logging__logLevel__default"                            = "Warning"
-    "AzureFunctionsJobHost__logging__logLevel__alma_item_checks_processor_service" = "Debug"
     "WEBSITE_RUN_FROM_PACKAGE"                                                     = "1"
     "SQLALCHEMY_CONNECTION_STRING"                                                 = "mysql+pymysql://${mysql_user.prod_user.user}:${random_password.prod_db_password.result}@${data.azurerm_mysql_flexible_server.existing.fqdn}:3306/${azurerm_mysql_flexible_database.prod.name}"
     "FETCH_ITEM_QUEUE"                                                             = local.storage_queues["fetch-queue"]
@@ -156,8 +154,6 @@ resource "azurerm_linux_function_app" "function_app" {
       "AzureWebJobs.process_scf_no_row_tray_report.Disabled",
       "AzureWebJobs.process_scf_duplicates_report.Disabled",
       "AzureWebJobs.process_item_data.Disabled",
-      "AzureFunctionsJobHost__logging__logLevel__default",
-      "AzureFunctionsJobHost__logging__logLevel__alma_item_checks_processor_service",
       "SQLALCHEMY_CONNECTION_STRING",
       "FETCH_ITEM_QUEUE",
       "UPDATE_QUEUE",
@@ -194,8 +190,6 @@ resource "azurerm_linux_function_app_slot" "staging_slot" {
     "AzureWebJobs.process_scf_no_row_tray_report.Disabled"                         = "true"
     "AzureWebJobs.process_scf_duplicates_report.Disabled"                          = "true"
     "AzureWebJobs.process_item_data.Disabled"                                      = "true"
-    "AzureFunctionsJobHost__logging__logLevel__default"                            = "None"
-    "AzureFunctionsJobHost__logging__logLevel__alma_item_checks_processor_service" = "None"
     "WEBSITE_RUN_FROM_PACKAGE"                                                     = "1"
     "SQLALCHEMY_CONNECTION_STRING"                                                 = "mysql+pymysql://${mysql_user.stage_user.user}:${random_password.stage_db_password.result}@${data.azurerm_mysql_flexible_server.existing.fqdn}:3306/${azurerm_mysql_flexible_database.stage.name}"
     "FETCH_ITEM_QUEUE"                                                             = local.storage_queues["fetch-queue-stage"]
