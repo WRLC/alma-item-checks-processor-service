@@ -42,6 +42,27 @@ data "azurerm_log_analytics_workspace" "existing" {
   resource_group_name = data.terraform_remote_state.shared.outputs.log_analytics_workspace_resource_group_name
 }
 
+resource "azurerm_monitor_diagnostic_setting" "storage_tables" {
+  name                       = "${local.service_name}-storage-tables"
+  target_resource_id         = "${data.azurerm_storage_account.existing.id}/tableServices/default"
+  log_analytics_workspace_id = data.azurerm_log_analytics_workspace.existing.id
+
+  enabled_log {
+    category = "StorageRead"
+  }
+  enabled_log {
+    category = "StorageWrite"
+  }
+  enabled_log {
+    category = "StorageDelete"
+  }
+
+  metric {
+    category = "Transaction"
+    enabled  = true
+  }
+}
+
 resource "azurerm_application_insights" "main" {
   name                = local.service_name
   resource_group_name = data.azurerm_resource_group.existing.name
@@ -129,22 +150,25 @@ resource "azurerm_linux_function_app" "function_app" {
 
 
   app_settings = {
-    "AzureWebJobs.process_iz_no_row_tray_report.Disabled"  = "false"
-    "AzureWebJobs.process_scf_no_row_tray_report.Disabled" = "false"
-    "AzureWebJobs.process_scf_duplicates_report.Disabled"  = "false"
-    "WEBSITE_RUN_FROM_PACKAGE"     = "1"
-    "SQLALCHEMY_CONNECTION_STRING" = "mysql+pymysql://${mysql_user.prod_user.user}:${random_password.prod_db_password.result}@${data.azurerm_mysql_flexible_server.existing.fqdn}:3306/${azurerm_mysql_flexible_database.prod.name}"
-    "FETCH_ITEM_QUEUE"             = local.storage_queues["fetch-queue"]
-    "UPDATE_QUEUE"                 = local.storage_queues["update-queue"]
-    "NOTIFICATION_QUEUE"           = local.storage_queues["notification-queue"]
-    "UPDATED_ITEMS_CONTAINER"      = local.storage_containers["updated-items-container"]
-    "REPORTS_CONTAINER"            = local.storage_containers["reports-container"]
-    "SCF_NO_ROW_TRAY_STAGE_TABLE"  = local.storage_tables["scfnorowtraystagetable"]
-    "SCF_NO_ROW_TRAY_REPORT_TABLE" = local.storage_tables["scfnorowtrayreporttable"]
-    "IZ_NO_ROW_TRAY_STAGE_TABLE"   = local.storage_tables["iznorowtraystagetable"]
-    "IZ_NO_ROW_TRAY_NCRON"         = "0 45 23 * * 0-4"
-    "SCF_NO_ROW_TRAY_REPORT_NCRON" = "0 30 23 * * 0-4"
-    "SCF_DUPLICATES_REPORT_NCRON"  = "0 0 9 * * 1-5"
+    "AzureWebJobs.process_iz_no_row_tray_report.Disabled"                          = "false"
+    "AzureWebJobs.process_scf_no_row_tray_report.Disabled"                         = "false"
+    "AzureWebJobs.process_scf_duplicates_report.Disabled"                          = "false"
+    "AzureWebJobs.process_item_data.Disabled"                                      = "false"
+    "AzureFunctionsJobHost__logging__logLevel__default"                            = "Warning"
+    "AzureFunctionsJobHost__logging__logLevel__alma_item_checks_processor_service" = "Debug"
+    "WEBSITE_RUN_FROM_PACKAGE"                                                     = "1"
+    "SQLALCHEMY_CONNECTION_STRING"                                                 = "mysql+pymysql://${mysql_user.prod_user.user}:${random_password.prod_db_password.result}@${data.azurerm_mysql_flexible_server.existing.fqdn}:3306/${azurerm_mysql_flexible_database.prod.name}"
+    "FETCH_ITEM_QUEUE"                                                             = local.storage_queues["fetch-queue"]
+    "UPDATE_QUEUE"                                                                 = local.storage_queues["update-queue"]
+    "NOTIFICATION_QUEUE"                                                           = local.storage_queues["notification-queue"]
+    "UPDATED_ITEMS_CONTAINER"                                                      = local.storage_containers["updated-items-container"]
+    "REPORTS_CONTAINER"                                                            = local.storage_containers["reports-container"]
+    "SCF_NO_ROW_TRAY_STAGE_TABLE"                                                  = local.storage_tables["scfnorowtraystagetable"]
+    "SCF_NO_ROW_TRAY_REPORT_TABLE"                                                 = local.storage_tables["scfnorowtrayreporttable"]
+    "IZ_NO_ROW_TRAY_STAGE_TABLE"                                                   = local.storage_tables["iznorowtraystagetable"]
+    "IZ_NO_ROW_TRAY_NCRON"                                                         = "0 45 23 * * 0-4"
+    "SCF_NO_ROW_TRAY_REPORT_NCRON"                                                 = "0 30 23 * * 0-4"
+    "SCF_DUPLICATES_REPORT_NCRON"                                                  = "0 0 9 * * 1-5"
   }
 
   sticky_settings {
@@ -152,6 +176,9 @@ resource "azurerm_linux_function_app" "function_app" {
       "AzureWebJobs.process_iz_no_row_tray_report.Disabled",
       "AzureWebJobs.process_scf_no_row_tray_report.Disabled",
       "AzureWebJobs.process_scf_duplicates_report.Disabled",
+      "AzureWebJobs.process_item_data.Disabled",
+      "AzureFunctionsJobHost__logging__logLevel__default",
+      "AzureFunctionsJobHost__logging__logLevel__alma_item_checks_processor_service",
       "SQLALCHEMY_CONNECTION_STRING",
       "FETCH_ITEM_QUEUE",
       "UPDATE_QUEUE",
@@ -184,21 +211,24 @@ resource "azurerm_linux_function_app_slot" "staging_slot" {
   }
 
   app_settings = {
-    "AzureWebJobs.process_iz_no_row_tray_report.Disabled"  = "true"
-    "AzureWebJobs.process_scf_no_row_tray_report.Disabled" = "true"
-    "AzureWebJobs.process_scf_duplicates_report.Disabled"  = "true"
-    "WEBSITE_RUN_FROM_PACKAGE"     = "1"
-    "SQLALCHEMY_CONNECTION_STRING" = "mysql+pymysql://${mysql_user.stage_user.user}:${random_password.stage_db_password.result}@${data.azurerm_mysql_flexible_server.existing.fqdn}:3306/${azurerm_mysql_flexible_database.stage.name}"
-    "FETCH_ITEM_QUEUE"             = local.storage_queues["fetch-queue-stage"]
-    "UPDATE_QUEUE"                 = local.storage_queues["update-queue-stage"]
-    "NOTIFICATION_QUEUE"           = local.storage_queues["notification-queue-stage"]
-    "UPDATED_ITEMS_CONTAINER"      = local.storage_containers["updated-items-container-stage"]
-    "REPORTS_CONTAINER"            = local.storage_containers["reports-container-stage"]
-    "SCF_NO_ROW_TRAY_STAGE_TABLE"  = local.storage_tables["scfnorowtraystagetablestage"]
-    "SCF_NO_ROW_TRAY_REPORT_TABLE" = local.storage_tables["scfnorowtrayreporttablestage"]
-    "IZ_NO_ROW_TRAY_STAGE_TABLE"   = local.storage_tables["iznorowtraystagetablestage"]
-    "IZ_NO_ROW_TRAY_NCRON"         = "0 45 23 1 1 *"
-    "SCF_NO_ROW_TRAY_REPORT_NCRON" = "0 30 23 1 1 *"
-    "SCF_DUPLICATES_REPORT_NCRON"  = "0 0 9 1 1 *"
+    "AzureWebJobs.process_iz_no_row_tray_report.Disabled"                          = "true"
+    "AzureWebJobs.process_scf_no_row_tray_report.Disabled"                         = "true"
+    "AzureWebJobs.process_scf_duplicates_report.Disabled"                          = "true"
+    "AzureWebJobs.process_item_data.Disabled"                                      = "true"
+    "AzureFunctionsJobHost__logging__logLevel__default"                            = "None"
+    "AzureFunctionsJobHost__logging__logLevel__alma_item_checks_processor_service" = "None"
+    "WEBSITE_RUN_FROM_PACKAGE"                                                     = "1"
+    "SQLALCHEMY_CONNECTION_STRING"                                                 = "mysql+pymysql://${mysql_user.stage_user.user}:${random_password.stage_db_password.result}@${data.azurerm_mysql_flexible_server.existing.fqdn}:3306/${azurerm_mysql_flexible_database.stage.name}"
+    "FETCH_ITEM_QUEUE"                                                             = local.storage_queues["fetch-queue-stage"]
+    "UPDATE_QUEUE"                                                                 = local.storage_queues["update-queue-stage"]
+    "NOTIFICATION_QUEUE"                                                           = local.storage_queues["notification-queue-stage"]
+    "UPDATED_ITEMS_CONTAINER"                                                      = local.storage_containers["updated-items-container-stage"]
+    "REPORTS_CONTAINER"                                                            = local.storage_containers["reports-container-stage"]
+    "SCF_NO_ROW_TRAY_STAGE_TABLE"                                                  = local.storage_tables["scfnorowtraystagetablestage"]
+    "SCF_NO_ROW_TRAY_REPORT_TABLE"                                                 = local.storage_tables["scfnorowtrayreporttablestage"]
+    "IZ_NO_ROW_TRAY_STAGE_TABLE"                                                   = local.storage_tables["iznorowtraystagetablestage"]
+    "IZ_NO_ROW_TRAY_NCRON"                                                         = "0 45 23 1 1 *"
+    "SCF_NO_ROW_TRAY_REPORT_NCRON"                                                 = "0 30 23 1 1 *"
+    "SCF_DUPLICATES_REPORT_NCRON"                                                  = "0 0 9 1 1 *"
   }
 }
