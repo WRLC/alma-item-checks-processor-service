@@ -51,7 +51,7 @@ class TestProcessorService:
     @patch('alma_item_checks_processor_service.services.processor_service.SCFItemProcessor')
     def test_should_process_scf(self, mock_scf_processor):
         """Test should_process for SCF institution"""
-        parsed_item = {'institution_code': 'scf'}
+        parsed_item = {'institution_code': '01WRLC_SCF'}
         mock_scf_processor.return_value.should_process.return_value = ['scf_no_row_tray']
 
         result = self.service.should_process(parsed_item)
@@ -79,7 +79,7 @@ class TestProcessorService:
     @patch('alma_item_checks_processor_service.services.processor_service.SCFItemProcessor')
     def test_process_scf(self, mock_scf_processor):
         """Test process for SCF institution"""
-        parsed_item = {'institution_code': 'scf'}
+        parsed_item = {'institution_code': '01WRLC_SCF'}
         processes = ['scf_no_row_tray']
 
         self.service.process(parsed_item, processes)
@@ -144,13 +144,13 @@ class TestProcessorService:
         """Test exception handling in should_process"""
         with patch('alma_item_checks_processor_service.services.processor_service.SCFItemProcessor', side_effect=Exception('Test')):
             with pytest.raises(Exception):
-                self.service.should_process({'institution_code': 'scf'})
+                self.service.should_process({'institution_code': '01WRLC_SCF'})
 
     def test_process_exception(self):
         """Test exception handling in process"""
         with patch('alma_item_checks_processor_service.services.processor_service.SCFItemProcessor', side_effect=Exception('Test')):
             with pytest.raises(Exception):
-                self.service.process({'institution_code': 'scf'}, ['scf_no_row_tray'])
+                self.service.process({'institution_code': '01WRLC_SCF'}, ['scf_no_row_tray'])
 
     def test_get_barcode_retrieval_data_missing_barcode(self):
         """Test get_barcode_retrieval_data with missing barcode"""
@@ -164,7 +164,7 @@ class TestProcessorService:
     @patch('alma_item_checks_processor_service.services.processor_service.SCFItemProcessor')
     def test_should_process_scf_no_processing_needed(self, mock_scf_processor):
         """Test should_process for SCF when no processing is needed"""
-        parsed_item = {'institution_code': 'scf'}
+        parsed_item = {'institution_code': '01WRLC_SCF'}
         mock_scf_processor.return_value.should_process.return_value = None
 
         result = self.service.should_process(parsed_item)
