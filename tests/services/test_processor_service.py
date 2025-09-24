@@ -180,3 +180,18 @@ class TestProcessorService:
         result = self.service.should_process(parsed_item)
 
         assert result is None
+
+    def test_get_item_by_barcode_no_item_found(self):
+        """Test get_item_by_barcode when Alma API returns None"""
+        mock_barcode_data = {'institution_code': 'test', 'barcode': '123'}
+        mock_institution = Mock()
+        mock_institution.code = 'test'
+
+        with patch.object(self.service, 'get_barcode_retrieval_data', return_value=mock_barcode_data), \
+             patch.object(self.service, 'get_institution', return_value=mock_institution), \
+             patch('alma_item_checks_processor_service.services.processor_service.BaseItemProcessor') as mock_base_processor:
+            mock_base_processor.retrieve_item_by_barcode.return_value = None
+
+            result = self.service.get_item_by_barcode()
+
+            assert result is None
