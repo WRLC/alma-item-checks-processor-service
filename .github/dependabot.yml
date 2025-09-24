@@ -1,25 +1,7 @@
 version: 2
 updates:
-  - package-ecosystem: "pip" # See documentation for possible values
-    directory: "/" # Location of package manifests
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "America/New_York"
-    target-branch: "feature/dependency-updates"
-    commit-message:
-      prefix: "deps"
-      include: "scope"
-    groups:
-      python:
-        applies-to: version-updates
-        update-types:
-          - "minor"
-          - "patch"
-
-  - package-ecosystem: "terraform" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  - package-ecosystem: "terraform"
+    directory: "/terraform"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -37,7 +19,7 @@ updates:
           - "patch"
 
   - package-ecosystem: "github-actions" # See documentation for possible values
-    directory: "/" # Location of package manifests
+    directory: "/.github/workflows" # Location of package manifests
     schedule:
       interval: "weekly"
       day: "monday"
