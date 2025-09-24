@@ -42,27 +42,6 @@ data "azurerm_log_analytics_workspace" "existing" {
   resource_group_name = data.terraform_remote_state.shared.outputs.log_analytics_workspace_resource_group_name
 }
 
-resource "azurerm_monitor_diagnostic_setting" "storage_tables" {
-  name                       = "${local.service_name}-storage-tables"
-  target_resource_id         = "${data.azurerm_storage_account.existing.id}/tableServices/default"
-  log_analytics_workspace_id = data.azurerm_log_analytics_workspace.existing.id
-
-  enabled_log {
-    category = "StorageRead"
-  }
-  enabled_log {
-    category = "StorageWrite"
-  }
-  enabled_log {
-    category = "StorageDelete"
-  }
-
-  metric {
-    category = "Transaction"
-    enabled  = true
-  }
-}
-
 resource "azurerm_application_insights" "main" {
   name                = local.service_name
   resource_group_name = data.azurerm_resource_group.existing.name
