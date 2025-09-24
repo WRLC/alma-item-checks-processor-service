@@ -35,18 +35,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v5
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.12'
-
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-        virtualenvs-create: true
-        virtualenvs-in-project: true
-        installer-parallel: true
-
     - name: Azure Login
       uses: azure/login@v2
       with:
@@ -70,10 +58,12 @@ jobs:
 
         FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
         RG_NAME=$(terraform output -raw function_app_resource_group_name)
+        PYTHON_VERSION=$(terraform output -raw python_version)
         STAGE_SLOT_NAME=$(terraform output -raw stage_slot_name)
 
         echo "FUNCTION_APP_NAME=$FUNCTION_APP_NAME" >> "$GITHUB_ENV"
         echo "RG_NAME=$RG_NAME" >> "$GITHUB_ENV"
+        echo "PYTHON_VERSION=$PYTHON_VERSION" >> "$GITHUB_ENV"
         echo "STAGE_SLOT_NAME=$STAGE_SLOT_NAME" >> "$GITHUB_ENV"
 
     - name: Swap deployment slots
@@ -87,6 +77,18 @@ jobs:
           --resource-group "${{ env.RG_NAME }}" \
           --slot "${{ env.STAGE_SLOT_NAME }}" \
           --target-slot "production"
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        installer-parallel: true
 
     - name: Configure private repository authentication
       run: poetry config http-basic.wrlc-python pat ${{ env.AZURE_DEVOPS_PAT }}
