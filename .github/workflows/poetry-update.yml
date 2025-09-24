@@ -11,19 +11,23 @@ permissions:
   contents: write
   pull-requests: write
 
-env:
-  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-  ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
-  ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
-  ARM_USE_OIDC: true
-  TF_WORKING_DIR: ./terraform
-
 jobs:
   get-terraform-outputs:
     name: Get Terraform outputs
     runs-on: ubuntu-latest
     outputs:
       python_version: ${{ steps.get_outputs.outputs.python_version }}
+
+    env:
+      TF_STATE_RG: ${{ secrets.TF_STATE_RG }}
+      TF_STATE_SA: ${{ secrets.TF_STATE_SA }}
+      TF_STATE_CONTAINER: ${{ secrets.TF_STATE_CONTAINER }}
+      TF_STATE_KEY: ${{ secrets.TF_STATE_KEY }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_USE_OIDC: true
+      TF_WORKING_DIR: ./terraform
 
     steps:
       - name: Checkout Code
@@ -45,10 +49,10 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           terraform init \
-            -backend-config="resource_group_name=${{ secrets.TF_STATE_RG }}" \
-            -backend-config="storage_account_name=${{ secrets.TF_STATE_SA }}" \
-            -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
-            -backend-config="key=${{ secrets.TF_STATE_KEY }}"
+            -backend-config="resource_group_name=${{ env.TF_STATE_RG }}" \
+            -backend-config="storage_account_name=${{ env.TF_STATE_SA }}" \
+            -backend-config="container_name=${{ env.TF_STATE_CONTAINER }}" \
+            -backend-config="key=${{ env.TF_STATE_KEY }}"
 
       - name: Get Terraform Outputs
         id: get_outputs
@@ -64,13 +68,54 @@ jobs:
 
     env:
       PYTHON_VERSION: ${{ needs.get-terraform-outputs.outputs.python_version }}
+      AZURE_DEVOPS_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
 
     steps:
-      - uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-private-key: ${{ secrets.AZURE_DEVOPS_SSH_KEY }}
+      - name: Checkout Code
+        uses: actions/checkout@v5
 
-      - uses: fuzzylabs/gha-poetry-update@v1
+      - name: Setup Python
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          poetry-version: 'latest'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+
+      - name: Configure Poetry to build locally
+        run: poetry config virtualenvs.in-project true
+
+      - name: Configure private repository authentication
+        run: poetry config http-basic.wrlc-python pat ${{ env.AZURE_DEVOPS_PAT }}
+
+      - name: Build with Poetry
+        run: poetry install
+
+      - name: Update dependencies
+        run: poetry update
+
+      - name: Check for dependency changes
+        id: check_changes
+        run: |
+          if git diff --quiet poetry.lock; then
+            echo "No dependency updates found"
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Dependency updates found"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update poetry dependencies'
+          title: 'chore: update poetry dependencies'
+          body: |
+            Automated dependency update performed on ${{ github.run_id }}
+          branch: dependency-updates-${{ github.run_number }}
+          labels: |
+            dependencies
+            automated
+            python
