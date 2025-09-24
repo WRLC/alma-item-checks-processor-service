@@ -19,15 +19,15 @@ jobs:
       python_version: ${{ steps.get_outputs.outputs.python_version }}
 
     env:
-      TF_STATE_RG: ${{ secrets.TF_STATE_RG }}
-      TF_STATE_SA: ${{ secrets.TF_STATE_SA }}
-      TF_STATE_CONTAINER: ${{ secrets.TF_STATE_CONTAINER }}
-      TF_STATE_KEY: ${{ secrets.TF_STATE_KEY }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
       ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
       ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
       ARM_USE_OIDC: true
       TF_WORKING_DIR: ./terraform
+      TF_STATE_RG: ${{ secrets.TF_STATE_RG }}
+      TF_STATE_SA: ${{ secrets.TF_STATE_SA }}
+      TF_STATE_CONTAINER: ${{ secrets.TF_STATE_CONTAINER }}
+      TF_STATE_KEY: ${{ secrets.TF_STATE_KEY }}
 
     steps:
       - name: Checkout Code
