@@ -66,9 +66,9 @@ jobs:
         RG_NAME=$(terraform output -raw function_app_resource_group_name)
         STAGE_SLOT_NAME=$(terraform output -raw stage_slot_name)
 
-        echo "FUNCTION_APP_NAME=$FUNCTION_APP_NAME" >> $GITHUB_ENV
-        echo "RG_NAME=$RG_NAME" >> $GITHUB_ENV
-        echo "STAGE_SLOT_NAME=$STAGE_SLOT_NAME" >> $GIHUB_ENV
+        echo "FUNCTION_APP_NAME=$FUNCTION_APP_NAME" >> "$GITHUB_ENV"
+        echo "RG_NAME=$RG_NAME" >> "$GITHUB_ENV"
+        echo "STAGE_SLOT_NAME=$STAGE_SLOT_NAME" >> "$GITHUB_ENV"
 
     - name: Swap deployment slots
       run: |
