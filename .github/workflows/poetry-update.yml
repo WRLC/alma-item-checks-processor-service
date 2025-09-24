@@ -3,8 +3,8 @@ name: Update Poetry Dependencies
 
 on:
   schedule:
-    - cron: '0 11 * * 1'  # EST (Standard Time)
-  workflow_dispatch:  # Allow manual triggering
+    - cron: '0 11 * * 1'
+  workflow_dispatch:
 
 jobs:
   update-dependencies:
@@ -17,7 +17,7 @@ jobs:
     - name: Update Poetry Dependencies
       uses: fuzzylabs/gha-poetry-update@v2
       with:
-        python-version: '3.11'  # Adjust to match your project
+        python-version: '3.12'
         poetry-version: 'latest'
         branch-name: 'dependency-updates-${{ github.run_number }}-${{ github.run_attempt }}'
         pr-title: 'chore: update poetry dependencies'
