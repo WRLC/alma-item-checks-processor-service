@@ -160,11 +160,11 @@ class TestIZItemProcessor:
             result = self.processor._get_scf_item_by_barcode("12345X")
 
         assert result == mock_scf_item
-        mock_institution_service.get_institution_by_code.assert_called_with("scf")
+        mock_institution_service.get_institution_by_code.assert_called_with("01WRLC_SCF")
 
     @patch('alma_item_checks_processor_service.services.iz_item_processor.SessionMaker')
     def test_get_scf_item_by_barcode_fallback_to_scf_psb(self, mock_session_maker):
-        """Test SCF item retrieval with fallback to scf-psb"""
+        """Test SCF item retrieval"""
         mock_session = Mock()
         mock_session_maker.return_value.__enter__.return_value = mock_session
 
@@ -177,10 +177,8 @@ class TestIZItemProcessor:
 
             self.processor._get_scf_item_by_barcode("12345X")
 
-        # Should try scf first, then scf-psb
-        assert mock_institution_service.get_institution_by_code.call_count == 2
-        mock_institution_service.get_institution_by_code.assert_any_call("scf")
-        mock_institution_service.get_institution_by_code.assert_any_call("scf-psb")
+        assert mock_institution_service.get_institution_by_code.call_count == 1
+        mock_institution_service.get_institution_by_code.assert_any_call("01WRLC_SCF")
 
     def test_scf_item_has_correct_row_tray_data_valid(self):
         """Test _scf_item_has_correct_row_tray_data with valid data"""
