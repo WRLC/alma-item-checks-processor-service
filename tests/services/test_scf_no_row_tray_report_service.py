@@ -3,6 +3,7 @@
 from unittest.mock import Mock, patch
 from alma_item_checks_processor_service.services.scf_no_row_tray_report_service import SCFNoRowTrayReportService
 from alma_item_checks_processor_service.models import Institution
+from alma_item_checks_processor_service.config import SCF_INSTITUTION_CODE
 
 
 class TestSCFNoRowTrayReportService:
@@ -29,7 +30,7 @@ class TestSCFNoRowTrayReportService:
             self.service._get_scf_institution()
 
         assert mock_institution_service.get_institution_by_code.call_count == 1
-        mock_institution_service.get_institution_by_code.assert_any_call("01WRLC_SCF")
+        mock_institution_service.get_institution_by_code.assert_any_call(SCF_INSTITUTION_CODE)
 
     @patch('alma_item_checks_processor_service.services.scf_no_row_tray_report_service.SessionMaker')
     def test_get_scf_institution_success(self, mock_session_maker):
@@ -44,7 +45,7 @@ class TestSCFNoRowTrayReportService:
                    return_value=mock_institution_service):
             self.service._get_scf_institution()
 
-        mock_institution_service.get_institution_by_code.assert_called_once_with("01WRLC_SCF")
+        mock_institution_service.get_institution_by_code.assert_called_once_with(SCF_INSTITUTION_CODE)
 
     def test_process_staged_items_report_no_institution(self):
         """Test process_staged_items_report when no SCF institution is found"""

@@ -40,6 +40,9 @@ SCF_DUPLICATES_REPORT_NCRON = os.getenv("SCF_DUPLICATES_REPORT_NCRON", "0 0 9 * 
 
 API_CLIENT_TIMEOUT = int(os.getenv("API_CLIENT_TIMEOUT", 90))
 
+# Institution codes
+SCF_INSTITUTION_CODE = "01WRLC_SCF"
+
 # --- Business Logic Constants ---
 PROVENANCE = [
     {

@@ -12,6 +12,7 @@ from alma_item_checks_processor_service.services.base_processor import BaseItemP
 from alma_item_checks_processor_service.config import (
     CHECKED_IZ_LOCATIONS,
     IZ_NO_ROW_TRAY_STAGE_TABLE,
+    SCF_INSTITUTION_CODE,
     UPDATE_QUEUE,
     UPDATED_ITEMS_CONTAINER,
     STORAGE_CONNECTION_STRING,
@@ -147,12 +148,12 @@ class IZItemProcessor(BaseItemProcessor):
             institution_service: InstitutionService = InstitutionService(db)
 
             scf_institution: Institution | None = (
-                institution_service.get_institution_by_code("01WRLC_SCF")
+                institution_service.get_institution_by_code(SCF_INSTITUTION_CODE)
             )
 
         if not scf_institution:
             logging.error(
-                "IZItemProcessor._get_scf_item_by_barcode: 01WRLC_SCF institution found in database"
+                f"IZItemProcessor._get_scf_item_by_barcode: {SCF_INSTITUTION_CODE} institution not found in database"
             )
             return None
 

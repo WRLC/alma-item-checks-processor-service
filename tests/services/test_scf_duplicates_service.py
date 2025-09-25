@@ -3,6 +3,7 @@
 import pytest
 from unittest.mock import Mock, patch
 from alma_item_checks_processor_service.services.scf_duplicates_service import ScfDuplicatesService
+from alma_item_checks_processor_service.config import SCF_INSTITUTION_CODE
 
 
 class TestScfDuplicatesService:
@@ -31,7 +32,7 @@ class TestScfDuplicatesService:
             self.service.process_scf_duplicates_report()
 
         assert mock_institution_service.get_institution_by_code.call_count == 1
-        mock_institution_service.get_institution_by_code.assert_any_call("01WRLC_SCF")
+        mock_institution_service.get_institution_by_code.assert_any_call(SCF_INSTITUTION_CODE)
 
     @patch('alma_item_checks_processor_service.services.scf_duplicates_service.SessionMaker')
     def test_process_scf_duplicates_report_with_institution(self, mock_session_maker):
@@ -63,7 +64,7 @@ class TestScfDuplicatesService:
 
             self.service.process_scf_duplicates_report()
 
-        mock_institution_service.get_institution_by_code.assert_called_once_with("01WRLC_SCF")
+        mock_institution_service.get_institution_by_code.assert_called_once_with(SCF_INSTITUTION_CODE)
         mock_storage_service.upload_blob_data.assert_called_once()
         mock_storage_service.send_queue_message.assert_called_once()
 
