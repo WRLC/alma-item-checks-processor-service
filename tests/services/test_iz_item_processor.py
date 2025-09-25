@@ -3,6 +3,7 @@
 import pytest
 from unittest.mock import Mock, patch
 from alma_item_checks_processor_service.services.iz_item_processor import IZItemProcessor
+from alma_item_checks_processor_service.config import SCF_INSTITUTION_CODE
 
 
 class TestIZItemProcessor:
@@ -160,7 +161,7 @@ class TestIZItemProcessor:
             result = self.processor._get_scf_item_by_barcode("12345X")
 
         assert result == mock_scf_item
-        mock_institution_service.get_institution_by_code.assert_called_with("01WRLC_SCF")
+        mock_institution_service.get_institution_by_code.assert_called_with(SCF_INSTITUTION_CODE)
 
     @patch('alma_item_checks_processor_service.services.iz_item_processor.SessionMaker')
     def test_get_scf_item_by_barcode_fallback_to_scf_psb(self, mock_session_maker):
@@ -178,7 +179,7 @@ class TestIZItemProcessor:
             self.processor._get_scf_item_by_barcode("12345X")
 
         assert mock_institution_service.get_institution_by_code.call_count == 1
-        mock_institution_service.get_institution_by_code.assert_any_call("01WRLC_SCF")
+        mock_institution_service.get_institution_by_code.assert_any_call(SCF_INSTITUTION_CODE)
 
     def test_scf_item_has_correct_row_tray_data_valid(self):
         """Test _scf_item_has_correct_row_tray_data with valid data"""

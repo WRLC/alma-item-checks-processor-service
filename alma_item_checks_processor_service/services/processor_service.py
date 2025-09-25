@@ -19,6 +19,7 @@ from alma_item_checks_processor_service.services.iz_item_processor import (
 from alma_item_checks_processor_service.services.scf_item_processor import (
     SCFItemProcessor,
 )
+from alma_item_checks_processor_service.config import SCF_INSTITUTION_CODE
 
 
 # noinspection PyMethodMayBeStatic
@@ -106,7 +107,7 @@ class ProcessorService:
             if iz is None:
                 return None
 
-            if iz == "01WRLC_SCF":  # if IZ is SCF, use SCF check
+            if iz == SCF_INSTITUTION_CODE:  # if IZ is SCF, use SCF check
                 scf_processor = SCFItemProcessor(parsed_item)
                 should_process: list[str] | bool = scf_processor.should_process()
 
@@ -153,7 +154,7 @@ class ProcessorService:
             if iz is None:
                 return
 
-            if iz == "01WRLC_SCF":  # If SCF IZ
+            if iz == SCF_INSTITUTION_CODE:  # If SCF IZ
                 scf_processor = SCFItemProcessor(parsed_item)
                 scf_processor.process(processes)  # run SCF processes
             else:

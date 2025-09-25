@@ -9,6 +9,7 @@ from wrlc_alma_api_client.models import Item  # type: ignore
 from wrlc_azure_storage_service import StorageService  # type: ignore
 
 from alma_item_checks_processor_service.config import (
+    SCF_INSTITUTION_CODE,
     SCF_NO_ROW_TRAY_STAGE_TABLE,
     REPORTS_CONTAINER,
     NOTIFICATION_QUEUE,
@@ -76,7 +77,9 @@ class SCFNoRowTrayReportService:
         with SessionMaker() as db:
             institution_service: InstitutionService = InstitutionService(db)
 
-            institution = institution_service.get_institution_by_code("01WRLC_SCF")
+            institution = institution_service.get_institution_by_code(
+                SCF_INSTITUTION_CODE
+            )
             if institution:
                 return institution
         return None

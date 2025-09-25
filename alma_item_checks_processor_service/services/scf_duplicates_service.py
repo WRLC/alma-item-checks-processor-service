@@ -12,6 +12,7 @@ from wrlc_azure_storage_service import StorageService  # type: ignore
 from alma_item_checks_processor_service.config import (
     NOTIFICATION_QUEUE,
     REPORTS_CONTAINER,
+    SCF_INSTITUTION_CODE,
     STORAGE_CONNECTION_STRING,
 )
 from alma_item_checks_processor_service.database import SessionMaker
@@ -29,11 +30,11 @@ class ScfDuplicatesService:
             institution_service: InstitutionService = InstitutionService(session)
 
             institution: Institution | None = (
-                institution_service.get_institution_by_code("01WRLC_SCF")
+                institution_service.get_institution_by_code(SCF_INSTITUTION_CODE)
             )
 
         if institution is None:
-            logging.error("01WRLC_SCF institution found in database")
+            logging.error(f"{SCF_INSTITUTION_CODE} institution not found in database")
             return
 
         job_id: str = f"scf_duplicate_report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
