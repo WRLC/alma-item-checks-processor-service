@@ -146,21 +146,13 @@ class IZItemProcessor(BaseItemProcessor):
         with SessionMaker() as db:
             institution_service: InstitutionService = InstitutionService(db)
 
-            # Try 'scf' first
             scf_institution: Institution | None = (
-                institution_service.get_institution_by_code("scf")
+                institution_service.get_institution_by_code("01WRLC_SCF")
             )
-
-            # Fall back to 'scf-psb' for debugging
-            if scf_institution is None:
-                logging.info(
-                    "SCF institution not found, falling back to scf-psb for debugging"
-                )
-                scf_institution = institution_service.get_institution_by_code("scf-psb")
 
         if not scf_institution:
             logging.error(
-                "IZItemProcessor._get_scf_item_by_barcode: Neither SCF nor scf-psb institution found in database"
+                "IZItemProcessor._get_scf_item_by_barcode: 01WRLC_SCF institution found in database"
             )
             return None
 

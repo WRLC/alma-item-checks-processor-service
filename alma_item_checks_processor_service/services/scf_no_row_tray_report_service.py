@@ -72,20 +72,14 @@ class SCFNoRowTrayReportService:
         )
 
     def _get_scf_institution(self) -> Institution | None:
-        """Get SCF institution from database, with fallback to scf-psb for debugging"""
+        """Get SCF institution from database"""
         with SessionMaker() as db:
             institution_service: InstitutionService = InstitutionService(db)
 
-            # Try 'scf' first
-            institution = institution_service.get_institution_by_code("scf")
+            institution = institution_service.get_institution_by_code("01WRLC_SCF")
             if institution:
                 return institution
-
-            # Fall back to 'scf-psb' for debugging
-            logging.info(
-                "SCF institution not found, falling back to scf-psb for debugging"
-            )
-            return institution_service.get_institution_by_code("scf-psb")
+        return None
 
     def _get_staged_items(self) -> list[dict[str, Any]]:
         """Retrieve all staged items from staging table"""

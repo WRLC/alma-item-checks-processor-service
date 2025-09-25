@@ -30,14 +30,12 @@ class TestScfDuplicatesService:
             # Should return early without errors
             self.service.process_scf_duplicates_report()
 
-        # Service tries "scf" first, then falls back to "scf-psb"
-        assert mock_institution_service.get_institution_by_code.call_count == 2
-        mock_institution_service.get_institution_by_code.assert_any_call("scf")
-        mock_institution_service.get_institution_by_code.assert_any_call("scf-psb")
+        assert mock_institution_service.get_institution_by_code.call_count == 1
+        mock_institution_service.get_institution_by_code.assert_any_call("01WRLC_SCF")
 
     @patch('alma_item_checks_processor_service.services.scf_duplicates_service.SessionMaker')
-    def test_process_scf_duplicates_report_fallback_institution(self, mock_session_maker):
-        """Test process_scf_duplicates_report with fallback to scf-psb"""
+    def test_process_scf_duplicates_report_with_institution(self, mock_session_maker):
+        """Test process_scf_duplicates_report with valid institution"""
         mock_session = Mock()
         mock_session_maker.return_value.__enter__.return_value = mock_session
 
@@ -47,8 +45,7 @@ class TestScfDuplicatesService:
         mock_institution.duplicate_report_path = "/test/path"
         mock_institution.id = 1
 
-        # First call returns None (scf not found), second returns institution (scf-psb found)
-        mock_institution_service.get_institution_by_code.side_effect = [None, mock_institution]
+        mock_institution_service.get_institution_by_code.return_value = mock_institution
 
         mock_alma_client = Mock()
         mock_report = Mock()
@@ -66,8 +63,7 @@ class TestScfDuplicatesService:
 
             self.service.process_scf_duplicates_report()
 
-        # Should try scf first, then scf-psb
-        assert mock_institution_service.get_institution_by_code.call_count == 2
+        mock_institution_service.get_institution_by_code.assert_called_once_with("01WRLC_SCF")
         mock_storage_service.upload_blob_data.assert_called_once()
         mock_storage_service.send_queue_message.assert_called_once()
 
