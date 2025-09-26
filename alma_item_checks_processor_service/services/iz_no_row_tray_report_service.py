@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from wrlc_alma_api_client.models import Item  # type: ignore
@@ -36,6 +37,11 @@ class IZNoRowTrayReportService:
     def process_staged_items_report(self) -> None:
         """Main method to initiate batch processing of staged items"""
         logging.info("Starting IZ no row tray batch processing")
+
+        # Check if a job is already running (simple UUID-based check for IZ)
+        if self._is_job_already_running():
+            logging.info("IZ batch job already in progress, skipping this execution")
+            return
 
         # Get staged items
         staged_entities: list[dict[str, Any]] = self._get_staged_items()
@@ -108,6 +114,61 @@ class IZNoRowTrayReportService:
             return {"success": True}
         else:
             return {"success": False, "reason": "Failed to update item with SCF data"}
+
+    def _is_job_already_running(self) -> bool:
+        """Check if there's already an IZ batch job in progress using storage table"""
+        try:
+            # Use the stage table to store a simple lock record
+            lock_entities = self.storage_service.get_entities(
+                table_name=IZ_NO_ROW_TRAY_STAGE_TABLE,
+                filter_query="PartitionKey eq 'iz_batch_lock' and RowKey eq 'current_job'",
+            )
+
+            if lock_entities and len(lock_entities) > 0:
+                # Check if lock is stale (older than 30 minutes)
+                lock_entity = lock_entities[0]
+                lock_time_str = lock_entity.get("created_at", "")
+
+                if lock_time_str:
+                    try:
+                        lock_time = datetime.fromisoformat(
+                            lock_time_str.replace("Z", "+00:00")
+                        )
+                        if datetime.now(timezone.utc) - lock_time > timedelta(
+                            minutes=30
+                        ):
+                            # Lock is stale, remove it
+                            self.storage_service.delete_entity(
+                                table_name=IZ_NO_ROW_TRAY_STAGE_TABLE,
+                                partition_key="iz_batch_lock",
+                                row_key="current_job",
+                            )
+                            return False
+                    except ValueError:
+                        # Invalid timestamp, treat as stale
+                        return False
+
+                logging.info("IZ batch job lock found, another job is in progress")
+                return True
+
+            # Create a lock
+            lock_record = {
+                "PartitionKey": "iz_batch_lock",
+                "RowKey": "current_job",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "status": "locked",
+            }
+
+            self.storage_service.upsert_entity(
+                table_name=IZ_NO_ROW_TRAY_STAGE_TABLE, entity=lock_record
+            )
+
+            return False
+
+        except Exception as e:
+            logging.error(f"Failed to check/create IZ job lock: {e}")
+            # If we can't check, assume no job is running to avoid blocking
+            return False
 
     def _create_batch_job(self, total_items: int) -> str:
         """Create a batch job record using a simple in-memory tracking approach"""
@@ -188,6 +249,9 @@ class IZNoRowTrayReportService:
         # Clear processed items from staging table
         self._clear_batch_from_staging(items)
 
+        # Check if this was the last batch and remove lock if so
+        self._cleanup_job_lock_if_complete()
+
         logging.info(
             f"Completed IZ batch {batch_number}: {processed_count} processed, {failed_count} failed"
         )
@@ -204,3 +268,24 @@ class IZNoRowTrayReportService:
                 )
             except Exception as e:
                 logging.warning(f"Failed to remove staged IZ item {barcode}: {e}")
+
+    def _cleanup_job_lock_if_complete(self) -> None:
+        """Remove job lock if no more staged items remain"""
+        try:
+            # Check if there are any remaining staged items
+            remaining_items = self.storage_service.get_entities(
+                table_name=IZ_NO_ROW_TRAY_STAGE_TABLE,
+                filter_query="PartitionKey eq 'iz_no_row_tray'",
+            )
+
+            if not remaining_items or len(remaining_items) == 0:
+                # No more staged items, remove the lock
+                self.storage_service.delete_entity(
+                    table_name=IZ_NO_ROW_TRAY_STAGE_TABLE,
+                    partition_key="iz_batch_lock",
+                    row_key="current_job",
+                )
+                logging.info("All IZ items processed, removed job lock")
+
+        except Exception as e:
+            logging.warning(f"Failed to cleanup IZ job lock: {e}")

@@ -44,6 +44,11 @@ class SCFNoRowTrayReportService:
         """Main method to initiate batch processing of staged items"""
         logging.info("Starting SCF no row tray report batch processing")
 
+        # Check if a job is already running
+        if self._is_job_already_running():
+            logging.info("Batch job already in progress, skipping this execution")
+            return
+
         # Get SCF institution
         self.scf_institution = self._get_scf_institution()
         if not self.scf_institution:
@@ -117,6 +122,24 @@ class SCFNoRowTrayReportService:
             return {"success": False, "reason": "No longer meets processing criteria"}
 
         return {"success": True}
+
+    def _is_job_already_running(self) -> bool:
+        """Check if there's already a batch job in progress"""
+        try:
+            job_entities = self.storage_service.get_entities(
+                table_name=SCF_NO_ROW_TRAY_REPORT_TABLE,
+                filter_query="PartitionKey eq 'batch_job' and status eq 'in_progress'",
+            )
+
+            if job_entities and len(job_entities) > 0:
+                logging.info(f"Found {len(job_entities)} jobs already in progress")
+                return True
+
+            return False
+        except Exception as e:
+            logging.error(f"Failed to check for existing jobs: {e}")
+            # If we can't check, assume no job is running to avoid blocking
+            return False
 
     def _create_batch_job(self, total_items: int) -> str:
         """Create a batch job record in the report table"""
@@ -205,16 +228,38 @@ class SCFNoRowTrayReportService:
             result = self._process_single_item(barcode)
 
             if result["success"]:
+                # Store item with missing/incorrect row tray data in report table
+                item_record = {
+                    "PartitionKey": "scf_no_row_tray_item",
+                    "RowKey": f"{job_id}_{barcode}",
+                    "job_id": job_id,
+                    "barcode": barcode,
+                    "processed_at": datetime.now(timezone.utc).isoformat(),
+                    "institution_code": "scf",
+                }
+
+                try:
+                    self.storage_service.upsert_entity(
+                        table_name=SCF_NO_ROW_TRAY_REPORT_TABLE, entity=item_record
+                    )
+                except Exception as e:
+                    logging.warning(f"Failed to store report item {barcode}: {e}")
+
                 processed_items.append(
                     {
                         "barcode": barcode,
                         "processed_at": datetime.now(timezone.utc).isoformat(),
                     }
                 )
-                logging.info(f"Successfully processed item {barcode}")
+                logging.info(
+                    f"Item {barcode} added to report (has missing/incorrect row tray data)"
+                )
             else:
+                # Item doesn't meet criteria or couldn't be retrieved - not included in report
                 failed_items.append({"barcode": barcode, "reason": result["reason"]})
-                logging.warning(f"Failed to process item {barcode}: {result['reason']}")
+                logging.info(
+                    f"Item {barcode} not included in report: {result['reason']}"
+                )
 
         # Update batch job progress
         self._update_batch_progress(job_id, len(processed_items), len(failed_items))
@@ -271,22 +316,29 @@ class SCFNoRowTrayReportService:
 
     def _generate_final_report(self, job_entity: dict[str, Any]) -> None:
         """Generate final report when all batches are complete"""
-        logging.info(f"Generating final report for job {job_entity['RowKey']}")
+        job_id = job_entity["RowKey"]
+        logging.info(f"Generating final report for job {job_id}")
+
+        # Get processed items from report table
+        processed_items = self._get_processed_items_for_job(job_id, "processed_item")
+        failed_items = self._get_processed_items_for_job(job_id, "failed_item")
 
         report = {
             "report_type": "scf_no_row_tray",
             "institution_id": self.scf_institution.id if self.scf_institution else None,
             "institution_code": "scf",
-            "job_id": job_entity["RowKey"],
+            "job_id": job_id,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "processing_started_at": job_entity["created_at"],
             "processing_completed_at": job_entity["completed_at"],
             "summary": {
                 "total_items": job_entity["total_items"],
                 "total_batches": job_entity["total_batches"],
-                "successfully_processed": job_entity["processed_items"],
-                "failed": job_entity["failed_items"],
+                "successfully_processed": len(processed_items),
+                "failed": len(failed_items),
             },
+            "processed_items": processed_items,
+            "failed_items": failed_items,
         }
 
         # Store report in container
@@ -304,6 +356,32 @@ class SCFNoRowTrayReportService:
 
         except Exception as e:
             logging.error(f"Failed to store final report: {e}")
+
+    def _get_processed_items_for_job(
+        self, job_id: str, partition_key: str
+    ) -> list[dict[str, Any]]:
+        """Get processed or failed items for a specific job from the report table"""
+        try:
+            item_entities = self.storage_service.get_entities(
+                table_name=SCF_NO_ROW_TRAY_REPORT_TABLE,
+                filter_query=f"PartitionKey eq '{partition_key}' and job_id eq '{job_id}'",
+            )
+
+            items = []
+            for entity in item_entities or []:
+                item_data = {
+                    "barcode": entity.get("barcode"),
+                    "processed_at": entity.get("processed_at"),
+                }
+                if partition_key == "failed_item":
+                    item_data["reason"] = entity.get("reason")
+                items.append(item_data)
+
+            return items
+
+        except Exception as e:
+            logging.error(f"Failed to get {partition_key} items for job {job_id}: {e}")
+            return []
 
     def _clear_batch_from_staging(self, barcodes: list[str]) -> None:
         """Clear specific barcodes from staging table"""
