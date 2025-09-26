@@ -2,7 +2,9 @@
 import azure.functions as func
 from alma_item_checks_processor_service.blueprints.bp_processor import bp as bp_processor
 from alma_item_checks_processor_service.blueprints.bp_scf_no_row_tray import bp as bp_scf_no_row_tray
+from alma_item_checks_processor_service.blueprints.bp_scf_no_row_tray_batch import bp as bp_scf_no_row_tray_batch
 from alma_item_checks_processor_service.blueprints.bp_iz_no_row_tray import bp as bp_iz_no_row_tray
+from alma_item_checks_processor_service.blueprints.bp_iz_no_row_tray_batch import bp as bp_iz_no_row_tray_batch
 from alma_item_checks_processor_service.blueprints.bp_scf_duplicates import bp as bp_scf_duplicates
 from alma_item_checks_processor_service.blueprints.bp_institutions_api import bp as bp_institutions_api
 
@@ -10,6 +12,8 @@ app = func.FunctionApp()
 
 app.register_blueprint(bp_processor)
 app.register_blueprint(bp_scf_no_row_tray)
+app.register_blueprint(bp_scf_no_row_tray_batch)
 app.register_blueprint(bp_iz_no_row_tray)
+app.register_blueprint(bp_iz_no_row_tray_batch)
 app.register_blueprint(bp_scf_duplicates)
 app.register_blueprint(bp_institutions_api)

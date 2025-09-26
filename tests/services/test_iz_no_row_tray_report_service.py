@@ -151,26 +151,43 @@ class TestIZNoRowTrayReportService:
 
         assert result == {"success": True}
 
-    def test_process_staged_items_no_items(self):
-        """Test _process_staged_items with no items"""
-        result = self.service._process_staged_items([])
-        assert result == (0, 0)
+    @patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.uuid')
+    def test_create_batch_job(self, mock_uuid):
+        """Test _create_batch_job method"""
+        mock_uuid.uuid4.return_value = 'test-job-id'
 
-    def test_process_staged_items_missing_data(self):
-        """Test _process_staged_items with missing barcode or institution"""
-        entities = [
-            {"RowKey": None, "institution_code": "doc"},  # Missing barcode
-            {"RowKey": "12345", "institution_code": None},  # Missing institution
-            {"RowKey": "67890", "institution_code": "doc"},  # Valid
+        result = self.service._create_batch_job(50)
+
+        assert result == 'test-job-id'
+
+    def test_enqueue_batches(self):
+        """Test _enqueue_batches method"""
+        staged_entities = [
+            {'RowKey': '123', 'institution_code': 'doc'},
+            {'RowKey': '456', 'institution_code': 'gw'},
+            {'RowKey': '789', 'institution_code': 'doc'}
         ]
 
-        with patch.object(self.service, '_process_single_item') as mock_process:
-            mock_process.return_value = {"success": True}
-            processed, failed = self.service._process_staged_items(entities)
+        with patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.IZ_NO_ROW_TRAY_BATCH_SIZE', 2):
+            self.service._enqueue_batches(staged_entities, 'job-id-123')
 
-        assert processed == 1  # Only the valid one
-        assert failed == 2  # Two failed due to missing data
-        mock_process.assert_called_once_with("67890", "doc")
+        # Should create 2 batches (2 items + 1 item)
+        assert self.service.storage_service.send_queue_message.call_count == 2
+
+    def test_process_batch(self):
+        """Test process_batch method"""
+        items = [
+            {'barcode': '123', 'institution_code': 'doc'},
+            {'barcode': '456', 'institution_code': 'gw'}
+        ]
+
+        with patch.object(self.service, '_process_single_item', side_effect=[{'success': True}, {'success': False, 'reason': 'Failed'}]), \
+             patch.object(self.service, '_clear_batch_from_staging'):
+
+            self.service.process_batch('job-id-123', 1, items)
+
+            assert self.service._process_single_item.call_count == 2
+            self.service._clear_batch_from_staging.assert_called_once_with(items)
 
     def test_process_staged_items_report_no_staged_items(self):
         """Test process_staged_items_report when no staged items"""
@@ -180,93 +197,26 @@ class TestIZNoRowTrayReportService:
             # Should return early without errors
             self.service.process_staged_items_report()
 
-    def test_clear_staging_table_success(self):
-        """Test successful staging table clearing"""
-        staged_entities = [
-            {"RowKey": "12345"},
-            {"RowKey": "67890"}
+    def test_clear_batch_from_staging(self):
+        """Test _clear_batch_from_staging method"""
+        items = [
+            {'barcode': '123', 'institution_code': 'doc'},
+            {'barcode': '456', 'institution_code': 'gw'}
         ]
 
-        with patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.logging'):
-            self.service._clear_staging_table(staged_entities)
+        self.service._clear_batch_from_staging(items)
 
-        # Should call delete_entity for each entity
         assert self.service.storage_service.delete_entity.call_count == 2
 
-    def test_clear_staging_table_with_errors(self):
-        """Test staging table clearing with some errors"""
-        staged_entities = [{"RowKey": "12345"}]
-        self.service.storage_service.delete_entity.side_effect = Exception("Delete error")
+    def test_process_staged_items_report_with_items(self):
+        """Test process_staged_items_report when items are found - batch processing"""
+        mock_staged_entities = [{'RowKey': '123', 'institution_code': 'doc'}]
 
-        with patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.logging'):
-            # Should not raise exception
-            self.service._clear_staging_table(staged_entities)
-
-    @patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.SessionMaker')
-    def test_process_staged_items_report_with_items(self, mock_session_maker):
-        """Test process_staged_items_report when items are found"""
-        mock_session = Mock()
-        mock_session_maker.return_value.__enter__.return_value = mock_session
-
-        mock_institution_service = Mock()
-        mock_institution = Mock()
-        mock_institution.id = 1
-        mock_institution_service.get_institution_by_code.return_value = mock_institution
-
-        # Mock staged entities
-        staged_entities = [
-            {"PartitionKey": "iz_no_row_tray", "RowKey": "12345", "institution_code": "test"}
-        ]
-
-        with patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.InstitutionService',
-                   return_value=mock_institution_service), \
-             patch.object(self.service, '_get_staged_items', return_value=staged_entities), \
-             patch.object(self.service, '_process_staged_items', return_value=(1, 0)), \
-             patch.object(self.service, '_clear_staging_table'), \
-             patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.logging') as mock_logging:
-
+        with patch.object(self.service, '_get_staged_items', return_value=mock_staged_entities), \
+             patch.object(self.service, '_create_batch_job', return_value='job-id-123'), \
+             patch.object(self.service, '_enqueue_batches'):
             self.service.process_staged_items_report()
 
-        # Should complete processing
-        mock_logging.info.assert_any_call("IZ no row tray report processing completed. Processed: 1, Failed: 0")
-
-    @patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.SessionMaker')
-    def test_process_staged_items_with_failed_items(self, mock_session_maker):
-        """Test _process_staged_items with failed processing"""
-        mock_session = Mock()
-        mock_session_maker.return_value.__enter__.return_value = mock_session
-
-        mock_institution_service = Mock()
-        mock_institution = Mock()
-        mock_institution.id = 1
-        mock_institution_service.get_institution_by_code.return_value = mock_institution
-
-        staged_entities = [
-            {"PartitionKey": "iz_no_row_tray", "RowKey": "12345", "institution_code": "test"}
-        ]
-
-        with patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.InstitutionService',
-                   return_value=mock_institution_service), \
-             patch.object(self.service, '_process_single_item', return_value={"success": False, "reason": "Test failure"}), \
-             patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.logging') as mock_logging:
-
-            processed_count, failed_count = self.service._process_staged_items(staged_entities)
-
-        assert processed_count == 0
-        assert failed_count == 1
-        mock_logging.warning.assert_called_with("Failed to process item 12345: Test failure")
-
-    def test_clear_staging_table_with_empty_barcode(self):
-        """Test _clear_staging_table with entity that has no barcode"""
-        staged_entities = [
-            {"PartitionKey": "iz_no_row_tray", "RowKey": None},  # Empty barcode
-            {"PartitionKey": "iz_no_row_tray", "RowKey": "12345"}
-        ]
-
-        with patch.object(self.service.storage_service, 'delete_entity') as mock_delete, \
-             patch('alma_item_checks_processor_service.services.iz_no_row_tray_report_service.logging'):
-
-            self.service._clear_staging_table(staged_entities)
-
-        # Should only delete the entity with a valid barcode
-        mock_delete.assert_called_once()
+            self.service._get_staged_items.assert_called_once()
+            self.service._create_batch_job.assert_called_once_with(1)
+            self.service._enqueue_batches.assert_called_once_with(mock_staged_entities, 'job-id-123')
