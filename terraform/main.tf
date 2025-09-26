@@ -143,6 +143,10 @@ resource "azurerm_linux_function_app" "function_app" {
     "SCF_NO_ROW_TRAY_STAGE_TABLE"                                                  = local.storage_tables["scfnorowtraystagetable"]
     "SCF_NO_ROW_TRAY_REPORT_TABLE"                                                 = local.storage_tables["scfnorowtrayreporttable"]
     "IZ_NO_ROW_TRAY_STAGE_TABLE"                                                   = local.storage_tables["iznorowtraystagetable"]
+    "SCF_NO_ROW_TRAY_BATCH_QUEUE"                                                  = local.storage_queues["scf-no-row-tray-batch-queue"]
+    "SCF_NO_ROW_TRAY_BATCH_SIZE"                                                   = "25"
+    "IZ_NO_ROW_TRAY_BATCH_QUEUE"                                                   = local.storage_queues["iz-no-row-tray-batch-queue"]
+    "IZ_NO_ROW_TRAY_BATCH_SIZE"                                                    = "25"
     "IZ_NO_ROW_TRAY_NCRON"                                                         = "0 45 23 * * 0-4"
     "SCF_NO_ROW_TRAY_REPORT_NCRON"                                                 = "0 30 23 * * 0-4"
     "SCF_DUPLICATES_REPORT_NCRON"                                                  = "0 0 9 * * 1-5"
@@ -163,6 +167,8 @@ resource "azurerm_linux_function_app" "function_app" {
       "SCF_NO_ROW_TRAY_STAGE_TABLE",
       "SCF_NO_ROW_TRAY_REPORT_TABLE",
       "IZ_NO_ROW_TRAY_STAGE_TABLE",
+      "SCF_NO_ROW_TRAY_BATCH_QUEUE",
+      "IZ_NO_ROW_TRAY_BATCH_QUEUE",
       "IZ_NO_ROW_TRAY_NCRON",
       "SCF_NO_ROW_TRAY_REPORT_NCRON",
       "SCF_DUPLICATES_REPORT_NCRON"
@@ -200,6 +206,10 @@ resource "azurerm_linux_function_app_slot" "staging_slot" {
     "SCF_NO_ROW_TRAY_STAGE_TABLE"                                                  = local.storage_tables["scfnorowtraystagetablestage"]
     "SCF_NO_ROW_TRAY_REPORT_TABLE"                                                 = local.storage_tables["scfnorowtrayreporttablestage"]
     "IZ_NO_ROW_TRAY_STAGE_TABLE"                                                   = local.storage_tables["iznorowtraystagetablestage"]
+    "SCF_NO_ROW_TRAY_BATCH_QUEUE"                                                  = local.storage_queues["scf-no-row-tray-batch-queue-stage"]
+    "SCF_NO_ROW_TRAY_BATCH_SIZE"                                                   = "25"
+    "IZ_NO_ROW_TRAY_BATCH_QUEUE"                                                   = local.storage_queues["iz-no-row-tray-batch-queue-stage"]
+    "IZ_NO_ROW_TRAY_BATCH_SIZE"                                                    = "25"
     "IZ_NO_ROW_TRAY_NCRON"                                                         = "0 45 23 1 1 *"
     "SCF_NO_ROW_TRAY_REPORT_NCRON"                                                 = "0 30 23 1 1 *"
     "SCF_DUPLICATES_REPORT_NCRON"                                                  = "0 0 9 1 1 *"

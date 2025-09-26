@@ -40,6 +40,16 @@ SCF_DUPLICATES_REPORT_NCRON = os.getenv("SCF_DUPLICATES_REPORT_NCRON", "0 0 9 * 
 
 API_CLIENT_TIMEOUT = int(os.getenv("API_CLIENT_TIMEOUT", 90))
 
+# Batch processing configuration
+SCF_NO_ROW_TRAY_BATCH_QUEUE = os.getenv(
+    "SCF_NO_ROW_TRAY_BATCH_QUEUE", "scf-no-row-tray-batch-queue"
+)
+SCF_NO_ROW_TRAY_BATCH_SIZE = int(os.getenv("SCF_NO_ROW_TRAY_BATCH_SIZE", 25))
+IZ_NO_ROW_TRAY_BATCH_QUEUE = os.getenv(
+    "IZ_NO_ROW_TRAY_BATCH_QUEUE", "iz-no-row-tray-batch-queue"
+)
+IZ_NO_ROW_TRAY_BATCH_SIZE = int(os.getenv("IZ_NO_ROW_TRAY_BATCH_SIZE", 25))
+
 # Institution codes
 SCF_INSTITUTION_CODE = "01WRLC_SCF"
 

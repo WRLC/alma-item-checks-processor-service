@@ -61,26 +61,20 @@ class TestSCFNoRowTrayReportService:
             # Add assertions to check logging and early return
 
     def test_process_staged_items_report_success(self):
-        """Test successful processing of staged items report"""
+        """Test successful processing of staged items report with batch processing"""
         mock_institution = Mock()
         mock_staged_entities = [{'RowKey': '123'}]
-        mock_processed_items = [{'barcode': '123'}]
-        mock_failed_items = []
 
         with patch.object(self.service, '_get_scf_institution', return_value=mock_institution), \
              patch.object(self.service, '_get_staged_items', return_value=mock_staged_entities), \
-             patch.object(self.service, '_process_staged_items', return_value=(mock_processed_items, mock_failed_items)), \
-             patch.object(self.service, '_clear_staging_table'), \
-             patch.object(self.service, '_generate_report', return_value='report_blob_name'), \
-             patch.object(self.service, '_send_notification'):
+             patch.object(self.service, '_create_batch_job', return_value='job-id-123'), \
+             patch.object(self.service, '_enqueue_batches'):
             self.service.process_staged_items_report()
 
             self.service._get_scf_institution.assert_called_once()
             self.service._get_staged_items.assert_called_once()
-            self.service._process_staged_items.assert_called_once_with(mock_staged_entities)
-            self.service._clear_staging_table.assert_called_once_with(mock_staged_entities)
-            self.service._generate_report.assert_called_once_with(1, mock_processed_items, mock_failed_items)
-            self.service._send_notification.assert_called_once_with('report_blob_name')
+            self.service._create_batch_job.assert_called_once_with(1)
+            self.service._enqueue_batches.assert_called_once_with(mock_staged_entities, 'job-id-123')
 
     def test_get_staged_items_success(self):
         """Test _get_staged_items successfully retrieves entities"""
@@ -103,18 +97,44 @@ class TestSCFNoRowTrayReportService:
 
         assert result == []
 
-    def test_process_staged_items(self):
-        """Test _process_staged_items method"""
-        staged_entities = [{'RowKey': '123'}, {'RowKey': '456'}, {'RowKey': None}]
+    @patch('alma_item_checks_processor_service.services.scf_no_row_tray_report_service.uuid')
+    def test_create_batch_job(self, mock_uuid):
+        """Test _create_batch_job method"""
+        mock_uuid.uuid4.return_value = 'test-job-id'
 
-        with patch.object(self.service, '_process_single_item', side_effect=[{'success': True}, {'success': False, 'reason': 'Failed'}]):
-            processed, failed = self.service._process_staged_items(staged_entities)
+        result = self.service._create_batch_job(50)
 
-            assert len(processed) == 1
-            assert len(failed) == 1
-            assert processed[0]['barcode'] == '123'
-            assert failed[0]['barcode'] == '456'
+        assert result == 'test-job-id'
+        self.service.storage_service.upsert_entity.assert_called_once()
+
+    def test_enqueue_batches(self):
+        """Test _enqueue_batches method"""
+        staged_entities = [
+            {'RowKey': '123'},
+            {'RowKey': '456'},
+            {'RowKey': '789'}
+        ]
+
+        with patch('alma_item_checks_processor_service.services.scf_no_row_tray_report_service.SCF_NO_ROW_TRAY_BATCH_SIZE', 2):
+            self.service._enqueue_batches(staged_entities, 'job-id-123')
+
+        # Should create 2 batches (2 items + 1 item)
+        assert self.service.storage_service.send_queue_message.call_count == 2
+
+    def test_process_batch(self):
+        """Test process_batch method"""
+        barcodes = ['123', '456']
+
+        with patch.object(self.service, '_get_scf_institution', return_value=Mock()), \
+             patch.object(self.service, '_process_single_item', side_effect=[{'success': True}, {'success': False, 'reason': 'Failed'}]), \
+             patch.object(self.service, '_update_batch_progress'), \
+             patch.object(self.service, '_clear_batch_from_staging'):
+
+            self.service.process_batch('job-id-123', 1, barcodes)
+
             assert self.service._process_single_item.call_count == 2
+            self.service._update_batch_progress.assert_called_once_with('job-id-123', 1, 1)
+            self.service._clear_batch_from_staging.assert_called_once_with(barcodes)
 
     @patch('alma_item_checks_processor_service.services.scf_no_row_tray_report_service.BaseItemProcessor')
     @patch('alma_item_checks_processor_service.services.scf_no_row_tray_report_service.SCFItemProcessor')
@@ -165,54 +185,52 @@ class TestSCFNoRowTrayReportService:
 
         assert result == {}
 
-    def test_clear_staging_table(self):
-        """Test _clear_staging_table method"""
-        staged_entities = [{'RowKey': '123'}, {'RowKey': '456'}, {'RowKey': None}]
+    def test_clear_batch_from_staging(self):
+        """Test _clear_batch_from_staging method"""
+        barcodes = ['123', '456']
 
-        self.service._clear_staging_table(staged_entities)
+        self.service._clear_batch_from_staging(barcodes)
 
         assert self.service.storage_service.delete_entity.call_count == 2
 
-    def test_clear_staging_table_exception(self):
-        """Test _clear_staging_table method when deleting an entity fails"""
-        staged_entities = [{'RowKey': '123'}]
-        self.service.storage_service.delete_entity.side_effect = Exception("Test Exception")
+    def test_update_batch_progress(self):
+        """Test _update_batch_progress method"""
+        mock_job_entity = {
+            'completed_batches': 1,
+            'processed_items': 5,
+            'failed_items': 1,
+            'total_batches': 3
+        }
+        self.service.storage_service.get_entities.return_value = [mock_job_entity]
 
-        self.service._clear_staging_table(staged_entities)
+        self.service._update_batch_progress('job-id-123', 3, 1)
 
-        self.service.storage_service.delete_entity.assert_called_once_with(
-            table_name='scfnorowtraystagetable',
-            partition_key='scf_no_row_tray',
-            row_key='123'
-        )
+        self.service.storage_service.upsert_entity.assert_called_once()
 
     @patch('alma_item_checks_processor_service.services.scf_no_row_tray_report_service.datetime')
-    def test_generate_report(self, mock_datetime):
-        """Test _generate_report method"""
+    def test_generate_final_report(self, mock_datetime):
+        """Test _generate_final_report method"""
         mock_now = Mock()
         mock_now.strftime.return_value = '20250101_120000'
         mock_now.isoformat.return_value = '2025-01-01T12:00:00+00:00'
         mock_datetime.now.return_value = mock_now
         self.service.scf_institution = Institution(id=1, code='scf', name='SCF')
 
-        job_id = self.service._generate_report(1, [], [])
+        job_entity = {
+            'RowKey': 'job-id-123',
+            'total_items': 10,
+            'total_batches': 2,
+            'processed_items': 8,
+            'failed_items': 2,
+            'created_at': '2025-01-01T11:00:00+00:00',
+            'completed_at': '2025-01-01T12:00:00+00:00'
+        }
 
-        assert job_id == 'scf_no_row_tray_report_20250101_120000'
+        with patch.object(self.service, '_send_notification') as mock_send_notification:
+            self.service._generate_final_report(job_entity)
+
         self.service.storage_service.upload_blob_data.assert_called_once()
-
-    @patch('alma_item_checks_processor_service.services.scf_no_row_tray_report_service.datetime')
-    def test_generate_report_exception(self, mock_datetime):
-        """Test _generate_report method when storing the report fails"""
-        mock_now = Mock()
-        mock_now.strftime.return_value = '20250101_120000'
-        mock_now.isoformat.return_value = '2025-01-01T12:00:00+00:00'
-        mock_datetime.now.return_value = mock_now
-        self.service.scf_institution = Institution(id=1, code='scf', name='SCF')
-        self.service.storage_service.upload_blob_data.side_effect = Exception("Test Exception")
-
-        job_id = self.service._generate_report(1, [], [])
-
-        assert job_id is None
+        mock_send_notification.assert_called_once()
 
     def test_send_notification(self):
         """Test _send_notification method"""

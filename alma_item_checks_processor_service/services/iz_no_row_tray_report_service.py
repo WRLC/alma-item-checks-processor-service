@@ -1,6 +1,7 @@
 """Service for processing IZ no row tray reports"""
 
 import logging
+import uuid
 from typing import Any
 
 from wrlc_alma_api_client.models import Item  # type: ignore
@@ -8,6 +9,8 @@ from wrlc_azure_storage_service import StorageService  # type: ignore
 
 from alma_item_checks_processor_service.config import (
     IZ_NO_ROW_TRAY_STAGE_TABLE,
+    IZ_NO_ROW_TRAY_BATCH_QUEUE,
+    IZ_NO_ROW_TRAY_BATCH_SIZE,
     STORAGE_CONNECTION_STRING,
 )
 from alma_item_checks_processor_service.database import SessionMaker
@@ -31,8 +34,8 @@ class IZNoRowTrayReportService:
         )
 
     def process_staged_items_report(self) -> None:
-        """Main method to process all staged items and generate report"""
-        logging.info("Starting IZ no row tray report processing")
+        """Main method to initiate batch processing of staged items"""
+        logging.info("Starting IZ no row tray batch processing")
 
         # Get staged items
         staged_entities: list[dict[str, Any]] = self._get_staged_items()
@@ -40,15 +43,14 @@ class IZNoRowTrayReportService:
             logging.info("No staged items found for processing")
             return
 
-        # Process each staged item
-        processed_count, failed_count = self._process_staged_items(staged_entities)
-
-        # Clear staging table after processing
-        self._clear_staging_table(staged_entities)
+        # Create batch job and split into smaller batches for processing
+        job_id = self._create_batch_job(len(staged_entities))
+        self._enqueue_batches(staged_entities, job_id)
 
         logging.info(
-            f"IZ no row tray report processing completed. Processed: {processed_count}, "
-            f"Failed: {failed_count}"
+            f"IZ no row tray batch processing initiated. Job ID: {job_id}, "
+            f"Total items: {len(staged_entities)}, "
+            f"Batches: {(len(staged_entities) + IZ_NO_ROW_TRAY_BATCH_SIZE - 1) // IZ_NO_ROW_TRAY_BATCH_SIZE}"
         )
 
     def _get_staged_items(self) -> list[dict[str, Any]]:
@@ -64,38 +66,6 @@ class IZNoRowTrayReportService:
         except Exception as e:
             logging.error(f"Failed to query staged items: {e}")
             return []
-
-    def _process_staged_items(
-        self, staged_entities: list[dict[str, Any]]
-    ) -> tuple[int, int]:
-        """Process each staged item and return processed and failed counts"""
-        processed_count: int = 0
-        failed_count: int = 0
-
-        for entity in staged_entities:
-            barcode: str | None = entity.get("RowKey")
-            institution_code: str | None = entity.get("institution_code")
-
-            if not barcode or not institution_code:
-                failed_count += 1
-                continue
-
-            logging.info(
-                f"Processing staged item: {barcode} from institution {institution_code}"
-            )
-
-            # Process individual item
-            result: dict[str, Any] = self._process_single_item(
-                barcode, institution_code
-            )
-            if result["success"]:
-                processed_count += 1
-                logging.info(f"Successfully processed item {barcode}")
-            else:
-                failed_count += 1
-                logging.warning(f"Failed to process item {barcode}: {result['reason']}")
-
-        return processed_count, failed_count
 
     def _process_single_item(
         self, barcode: str, institution_code: str
@@ -139,38 +109,98 @@ class IZNoRowTrayReportService:
         else:
             return {"success": False, "reason": "Failed to update item with SCF data"}
 
-    def _clear_staging_table(self, staged_entities: list[dict[str, Any]]) -> None:
-        """Clear all staged entities from the staging table in batches"""
-        logging.info(f"Clearing {len(staged_entities)} items from staging table")
-
-        # Process in batches of 100 (Azure Table Storage batch limit)
-        batch_size: int = 100
-        total_deleted: int = 0
-
-        for i in range(0, len(staged_entities), batch_size):
-            batch: list[dict[str, Any]] = staged_entities[i : i + batch_size]
-            batch_deleted: int = 0
-
-            for entity in batch:
-                barcode: str | None = entity.get("RowKey")
-                if not barcode:
-                    continue
-
-                try:
-                    self.storage_service.delete_entity(
-                        table_name=IZ_NO_ROW_TRAY_STAGE_TABLE,
-                        partition_key="iz_no_row_tray",
-                        row_key=barcode,
-                    )
-                    batch_deleted += 1
-                except Exception as e:
-                    logging.warning(f"Failed to remove staged item {barcode}: {e}")
-
-            total_deleted += batch_deleted
-            logging.info(
-                f"Deleted batch {i//batch_size + 1}: {batch_deleted}/{len(batch)} items"
-            )
+    def _create_batch_job(self, total_items: int) -> str:
+        """Create a batch job record using a simple in-memory tracking approach"""
+        job_id = str(uuid.uuid4())
+        total_batches = (
+            total_items + IZ_NO_ROW_TRAY_BATCH_SIZE - 1
+        ) // IZ_NO_ROW_TRAY_BATCH_SIZE
 
         logging.info(
-            f"Successfully deleted {total_deleted}/{len(staged_entities)} staged items"
+            f"Created IZ batch job {job_id} for {total_items} items in {total_batches} batches"
         )
+        return job_id
+
+    def _enqueue_batches(
+        self, staged_entities: list[dict[str, Any]], job_id: str
+    ) -> None:
+        """Split staged items into batches and enqueue for processing"""
+        for i in range(0, len(staged_entities), IZ_NO_ROW_TRAY_BATCH_SIZE):
+            batch = staged_entities[i : i + IZ_NO_ROW_TRAY_BATCH_SIZE]
+            batch_number = (i // IZ_NO_ROW_TRAY_BATCH_SIZE) + 1
+
+            # Extract barcodes and institution codes from entities
+            batch_items = []
+            for entity in batch:
+                barcode = entity.get("RowKey")
+                institution_code = entity.get("institution_code")
+                if barcode and institution_code:
+                    batch_items.append(
+                        {"barcode": barcode, "institution_code": institution_code}
+                    )
+
+            batch_message = {
+                "job_id": job_id,
+                "batch_number": batch_number,
+                "items": batch_items,
+            }
+
+            try:
+                self.storage_service.send_queue_message(
+                    queue_name=IZ_NO_ROW_TRAY_BATCH_QUEUE, message_content=batch_message
+                )
+                logging.info(
+                    f"Enqueued IZ batch {batch_number} with {len(batch_items)} items"
+                )
+            except Exception as e:
+                logging.error(f"Failed to enqueue IZ batch {batch_number}: {e}")
+                # Continue with other batches even if one fails
+
+    def process_batch(
+        self, job_id: str, batch_number: int, items: list[dict[str, str]]
+    ) -> None:
+        """Process a single batch of IZ items"""
+        logging.info(
+            f"Processing IZ batch {batch_number} for job {job_id} with {len(items)} items"
+        )
+
+        processed_count = 0
+        failed_count = 0
+
+        for item in items:
+            barcode = item["barcode"]
+            institution_code = item["institution_code"]
+
+            logging.info(
+                f"Processing IZ item: {barcode} from institution {institution_code}"
+            )
+            result = self._process_single_item(barcode, institution_code)
+
+            if result["success"]:
+                processed_count += 1
+                logging.info(f"Successfully processed IZ item {barcode}")
+            else:
+                failed_count += 1
+                logging.warning(
+                    f"Failed to process IZ item {barcode}: {result['reason']}"
+                )
+
+        # Clear processed items from staging table
+        self._clear_batch_from_staging(items)
+
+        logging.info(
+            f"Completed IZ batch {batch_number}: {processed_count} processed, {failed_count} failed"
+        )
+
+    def _clear_batch_from_staging(self, items: list[dict[str, str]]) -> None:
+        """Clear specific items from staging table"""
+        for item in items:
+            barcode = item["barcode"]
+            try:
+                self.storage_service.delete_entity(
+                    table_name=IZ_NO_ROW_TRAY_STAGE_TABLE,
+                    partition_key="iz_no_row_tray",
+                    row_key=barcode,
+                )
+            except Exception as e:
+                logging.warning(f"Failed to remove staged IZ item {barcode}: {e}")

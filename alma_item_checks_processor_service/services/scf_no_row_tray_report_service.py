@@ -2,6 +2,7 @@
 
 import json
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -11,6 +12,9 @@ from wrlc_azure_storage_service import StorageService  # type: ignore
 from alma_item_checks_processor_service.config import (
     SCF_INSTITUTION_CODE,
     SCF_NO_ROW_TRAY_STAGE_TABLE,
+    SCF_NO_ROW_TRAY_REPORT_TABLE,
+    SCF_NO_ROW_TRAY_BATCH_QUEUE,
+    SCF_NO_ROW_TRAY_BATCH_SIZE,
     REPORTS_CONTAINER,
     NOTIFICATION_QUEUE,
     STORAGE_CONNECTION_STRING,
@@ -37,8 +41,8 @@ class SCFNoRowTrayReportService:
         self.scf_institution: Institution | None = None
 
     def process_staged_items_report(self) -> None:
-        """Main method to process all staged items and generate report"""
-        logging.info("Starting SCF no row tray report processing")
+        """Main method to initiate batch processing of staged items"""
+        logging.info("Starting SCF no row tray report batch processing")
 
         # Get SCF institution
         self.scf_institution = self._get_scf_institution()
@@ -52,24 +56,14 @@ class SCFNoRowTrayReportService:
             logging.info("No staged items found for processing")
             return
 
-        # Process each staged item
-        processed_items, failed_items = self._process_staged_items(staged_entities)
-
-        # Clear staging table after processing
-        self._clear_staging_table(staged_entities)
-
-        # Generate and store report
-        report_blob_name: str | None = self._generate_report(
-            len(staged_entities), processed_items, failed_items
-        )
-
-        if report_blob_name:
-            # Send notification
-            self._send_notification(report_blob_name)
+        # Create batch job and split into smaller batches for processing
+        job_id = self._create_batch_job(len(staged_entities))
+        self._enqueue_batches(staged_entities, job_id)
 
         logging.info(
-            f"SCF no row tray report processing completed. Processed: {len(processed_items)}, "
-            f"Failed: {len(failed_items)}"
+            f"SCF no row tray batch processing initiated. Job ID: {job_id}, "
+            f"Total items: {len(staged_entities)}, "
+            f"Batches: {(len(staged_entities) + SCF_NO_ROW_TRAY_BATCH_SIZE - 1) // SCF_NO_ROW_TRAY_BATCH_SIZE}"
         )
 
     def _get_scf_institution(self) -> Institution | None:
@@ -98,36 +92,6 @@ class SCFNoRowTrayReportService:
             logging.error(f"Failed to query staged items: {e}")
             return []
 
-    def _process_staged_items(
-        self, staged_entities: list[dict[str, Any]]
-    ) -> tuple[list[dict], list[dict]]:
-        """Process each staged item and return processed and failed lists"""
-        processed_items: list[dict] = []
-        failed_items: list[dict] = []
-
-        for entity in staged_entities:
-            barcode: str | None = entity.get("RowKey")
-            if not barcode:
-                continue
-
-            logging.info(f"Processing staged item: {barcode}")
-
-            # Process individual item
-            result: dict[str, Any] = self._process_single_item(barcode)
-            if result["success"]:
-                processed_items.append(
-                    {
-                        "barcode": barcode,
-                        "processed_at": datetime.now(timezone.utc).isoformat(),
-                    }
-                )
-                logging.info(f"Successfully processed item {barcode}")
-            else:
-                failed_items.append({"barcode": barcode, "reason": result["reason"]})
-                logging.warning(f"Failed to process item {barcode}: {result['reason']}")
-
-        return processed_items, failed_items
-
     def _process_single_item(self, barcode: str) -> dict[str, Any]:
         """Process a single staged item"""
         if not self.scf_institution:
@@ -154,73 +118,204 @@ class SCFNoRowTrayReportService:
 
         return {"success": True}
 
-    def _clear_staging_table(self, staged_entities: list[dict[str, Any]]) -> None:
-        """Clear all staged entities from the staging table in batches"""
-        logging.info(f"Clearing {len(staged_entities)} items from staging table")
+    def _create_batch_job(self, total_items: int) -> str:
+        """Create a batch job record in the report table"""
+        job_id = str(uuid.uuid4())
+        total_batches = (
+            total_items + SCF_NO_ROW_TRAY_BATCH_SIZE - 1
+        ) // SCF_NO_ROW_TRAY_BATCH_SIZE
 
-        # Process in batches of 100 (Azure Table Storage batch limit)
-        batch_size: int = 100
-        total_deleted: int = 0
+        job_record = {
+            "PartitionKey": "batch_job",
+            "RowKey": job_id,
+            "status": "in_progress",
+            "total_items": total_items,
+            "total_batches": total_batches,
+            "completed_batches": 0,
+            "processed_items": 0,
+            "failed_items": 0,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "institution_code": "scf",
+        }
 
-        for i in range(0, len(staged_entities), batch_size):
-            batch: list[dict[str, Any]] = staged_entities[i : i + batch_size]
-            batch_deleted: int = 0
-
-            for entity in batch:
-                barcode: str | None = entity.get("RowKey")
-                if not barcode:
-                    continue
-
-                try:
-                    self.storage_service.delete_entity(
-                        table_name=SCF_NO_ROW_TRAY_STAGE_TABLE,
-                        partition_key="scf_no_row_tray",
-                        row_key=barcode,
-                    )
-                    batch_deleted += 1
-                except Exception as e:
-                    logging.warning(f"Failed to remove staged item {barcode}: {e}")
-
-            total_deleted += batch_deleted
-            logging.info(
-                f"Deleted batch {i//batch_size + 1}: {batch_deleted}/{len(batch)} items"
+        try:
+            self.storage_service.upsert_entity(
+                table_name=SCF_NO_ROW_TRAY_REPORT_TABLE, entity=job_record
             )
+            logging.info(
+                f"Created batch job {job_id} for {total_items} items in {total_batches} batches"
+            )
+        except Exception as e:
+            logging.error(f"Failed to create batch job record: {e}")
+            raise
 
+        return job_id
+
+    def _enqueue_batches(
+        self, staged_entities: list[dict[str, Any]], job_id: str
+    ) -> None:
+        """Split staged items into batches and enqueue for processing"""
+        for i in range(0, len(staged_entities), SCF_NO_ROW_TRAY_BATCH_SIZE):
+            batch = staged_entities[i : i + SCF_NO_ROW_TRAY_BATCH_SIZE]
+            batch_number = (i // SCF_NO_ROW_TRAY_BATCH_SIZE) + 1
+
+            # Extract barcodes from entities
+            barcodes = [
+                entity.get("RowKey") for entity in batch if entity.get("RowKey")
+            ]
+
+            batch_message = {
+                "job_id": job_id,
+                "batch_number": batch_number,
+                "barcodes": barcodes,
+            }
+
+            try:
+                self.storage_service.send_queue_message(
+                    queue_name=SCF_NO_ROW_TRAY_BATCH_QUEUE,
+                    message_content=batch_message,
+                )
+                logging.info(
+                    f"Enqueued batch {batch_number} with {len(barcodes)} items"
+                )
+            except Exception as e:
+                logging.error(f"Failed to enqueue batch {batch_number}: {e}")
+                # Continue with other batches even if one fails
+
+    def process_batch(
+        self, job_id: str, batch_number: int, barcodes: list[str]
+    ) -> None:
+        """Process a single batch of items"""
         logging.info(
-            f"Successfully deleted {total_deleted}/{len(staged_entities)} staged items"
+            f"Processing batch {batch_number} for job {job_id} with {len(barcodes)} items"
         )
 
-    def _generate_report(
-        self, total_staged: int, processed_items: list[dict], failed_items: list[dict]
-    ) -> str | None:
-        """Generate JSON report and store in container"""
-        report: dict[str, Any] = {
+        # Get SCF institution
+        self.scf_institution = self._get_scf_institution()
+        if not self.scf_institution:
+            logging.error("SCF institution not found in database")
+            return
+
+        # Process items in this batch
+        processed_items = []
+        failed_items = []
+
+        for barcode in barcodes:
+            logging.info(f"Processing item: {barcode}")
+            result = self._process_single_item(barcode)
+
+            if result["success"]:
+                processed_items.append(
+                    {
+                        "barcode": barcode,
+                        "processed_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+                logging.info(f"Successfully processed item {barcode}")
+            else:
+                failed_items.append({"barcode": barcode, "reason": result["reason"]})
+                logging.warning(f"Failed to process item {barcode}: {result['reason']}")
+
+        # Update batch job progress
+        self._update_batch_progress(job_id, len(processed_items), len(failed_items))
+
+        # Clear processed items from staging table
+        self._clear_batch_from_staging(barcodes)
+
+        logging.info(
+            f"Completed batch {batch_number}: {len(processed_items)} processed, {len(failed_items)} failed"
+        )
+
+    def _update_batch_progress(
+        self, job_id: str, batch_processed: int, batch_failed: int
+    ) -> None:
+        """Update batch job progress and check if complete"""
+        try:
+            # Get current job record
+            job_entities = self.storage_service.get_entities(
+                table_name=SCF_NO_ROW_TRAY_REPORT_TABLE,
+                filter_query=f"PartitionKey eq 'batch_job' and RowKey eq '{job_id}'",
+            )
+
+            if not job_entities or len(job_entities) == 0:
+                logging.error(f"Batch job {job_id} not found")
+                return
+
+            job_entity = job_entities[0]
+
+            # Update counters
+            new_completed_batches = job_entity["completed_batches"] + 1
+            new_processed_items = job_entity["processed_items"] + batch_processed
+            new_failed_items = job_entity["failed_items"] + batch_failed
+
+            # Update entity
+            job_entity["completed_batches"] = new_completed_batches
+            job_entity["processed_items"] = new_processed_items
+            job_entity["failed_items"] = new_failed_items
+
+            # Check if job is complete
+            if new_completed_batches >= job_entity["total_batches"]:
+                job_entity["status"] = "completed"
+                job_entity["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+            self.storage_service.upsert_entity(
+                table_name=SCF_NO_ROW_TRAY_REPORT_TABLE, entity=job_entity
+            )
+
+            # If job is complete, generate final report
+            if job_entity["status"] == "completed":
+                self._generate_final_report(job_entity)
+
+        except Exception as e:
+            logging.error(f"Failed to update batch progress for job {job_id}: {e}")
+
+    def _generate_final_report(self, job_entity: dict[str, Any]) -> None:
+        """Generate final report when all batches are complete"""
+        logging.info(f"Generating final report for job {job_entity['RowKey']}")
+
+        report = {
             "report_type": "scf_no_row_tray",
-            "institution_id": self.scf_institution.id,  # type: ignore
+            "institution_id": self.scf_institution.id if self.scf_institution else None,
             "institution_code": "scf",
+            "job_id": job_entity["RowKey"],
             "generated_at": datetime.now(timezone.utc).isoformat(),
+            "processing_started_at": job_entity["created_at"],
+            "processing_completed_at": job_entity["completed_at"],
             "summary": {
-                "total_staged": total_staged,
-                "successfully_processed": len(processed_items),
-                "failed": len(failed_items),
+                "total_items": job_entity["total_items"],
+                "total_batches": job_entity["total_batches"],
+                "successfully_processed": job_entity["processed_items"],
+                "failed": job_entity["failed_items"],
             },
-            "processed_items": processed_items,
-            "failed_items": failed_items,
         }
 
         # Store report in container
-        job_id: str = f"scf_no_row_tray_report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        report_name = f"scf_no_row_tray_report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
         try:
             self.storage_service.upload_blob_data(
                 container_name=REPORTS_CONTAINER,
-                blob_name=job_id + ".json",
+                blob_name=report_name + ".json",
                 data=json.dumps(report, indent=2).encode(),
             )
-            logging.info(f"Report stored as {job_id}.json")
-            return job_id
+            logging.info(f"Final report stored as {report_name}.json")
+
+            # Send notification
+            self._send_notification(report_name)
+
         except Exception as e:
-            logging.error(f"Failed to store report: {e}")
-            return None
+            logging.error(f"Failed to store final report: {e}")
+
+    def _clear_batch_from_staging(self, barcodes: list[str]) -> None:
+        """Clear specific barcodes from staging table"""
+        for barcode in barcodes:
+            try:
+                self.storage_service.delete_entity(
+                    table_name=SCF_NO_ROW_TRAY_STAGE_TABLE,
+                    partition_key="scf_no_row_tray",
+                    row_key=barcode,
+                )
+            except Exception as e:
+                logging.warning(f"Failed to remove staged item {barcode}: {e}")
 
     def _send_notification(self, job_id: str) -> None:
         """Send notification message about completed report"""
