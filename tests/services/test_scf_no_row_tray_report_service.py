@@ -1,5 +1,6 @@
 """Tests for services/scf_no_row_tray_report_service.py"""
 
+import pytest
 from unittest.mock import Mock, patch
 from alma_item_checks_processor_service.services.scf_no_row_tray_report_service import SCFNoRowTrayReportService
 from alma_item_checks_processor_service.models import Institution
@@ -75,6 +76,36 @@ class TestSCFNoRowTrayReportService:
             self.service._get_staged_items.assert_called_once()
             self.service._create_batch_job.assert_called_once_with(1)
             self.service._enqueue_batches.assert_called_once_with(mock_staged_entities, 'job-id-123')
+
+    def test_process_staged_items_report_job_already_running(self):
+        """Test process_staged_items_report skips when job is already running"""
+        with patch.object(self.service, '_is_job_already_running', return_value=True):
+            self.service.process_staged_items_report()
+            # Should not call any other methods
+
+    def test_is_job_already_running_no_jobs(self):
+        """Test _is_job_already_running when no jobs are running"""
+        self.service.storage_service.get_entities.return_value = []
+
+        result = self.service._is_job_already_running()
+
+        assert result is False
+
+    def test_is_job_already_running_has_jobs(self):
+        """Test _is_job_already_running when jobs are in progress"""
+        self.service.storage_service.get_entities.return_value = [{'status': 'in_progress'}]
+
+        result = self.service._is_job_already_running()
+
+        assert result is True
+
+    def test_is_job_already_running_exception(self):
+        """Test _is_job_already_running handles exceptions gracefully"""
+        self.service.storage_service.get_entities.side_effect = Exception("Storage error")
+
+        result = self.service._is_job_already_running()
+
+        assert result is False  # Should not block on error
 
     def test_get_staged_items_success(self):
         """Test _get_staged_items successfully retrieves entities"""
@@ -256,3 +287,67 @@ class TestSCFNoRowTrayReportService:
         self.service._send_notification('job_id')
 
         self.service.storage_service.send_queue_message.assert_not_called()
+
+    def test_create_batch_job_exception(self):
+        """Test _create_batch_job when storage operation fails"""
+        self.service.storage_service.upsert_entity.side_effect = Exception("Storage error")
+
+        with pytest.raises(Exception, match="Storage error"):
+            self.service._create_batch_job(50)
+
+    def test_get_processed_items_for_job_exception(self):
+        """Test _get_processed_items_for_job when storage operation fails"""
+        self.service.storage_service.get_entities.side_effect = Exception("Storage error")
+
+        result = self.service._get_processed_items_for_job("job-id", "processed_item")
+
+        assert result == []
+
+    def test_update_batch_progress_job_not_found(self):
+        """Test _update_batch_progress when job entity is not found"""
+        self.service.storage_service.get_entities.return_value = []
+
+        self.service._update_batch_progress('job-id-123', 1, 0)
+
+        # Should not call upsert if job not found
+        self.service.storage_service.upsert_entity.assert_not_called()
+
+    def test_update_batch_progress_exception(self):
+        """Test _update_batch_progress when storage operation fails"""
+        self.service.storage_service.get_entities.side_effect = Exception("Storage error")
+
+        self.service._update_batch_progress('job-id-123', 1, 0)
+
+        # Should handle exception gracefully
+        self.service.storage_service.upsert_entity.assert_not_called()
+
+    def test_generate_final_report_upload_exception(self):
+        """Test _generate_final_report when upload fails"""
+        self.service.scf_institution = Institution(id=1, code='scf', name='SCF')
+        self.service.storage_service.upload_blob_data.side_effect = Exception("Upload error")
+
+        job_entity = {
+            'RowKey': 'job-id-123',
+            'total_items': 10,
+            'total_batches': 2,
+            'created_at': '2025-01-01T11:00:00+00:00',
+            'completed_at': '2025-01-01T12:00:00+00:00'
+        }
+
+        with patch.object(self.service, '_get_processed_items_for_job', return_value=[]), \
+             patch.object(self.service, '_send_notification') as mock_send:
+
+            self.service._generate_final_report(job_entity)
+
+            # Should not call send_notification if upload fails
+            mock_send.assert_not_called()
+
+    def test_clear_batch_from_staging_exception(self):
+        """Test _clear_batch_from_staging when delete operation fails"""
+        self.service.storage_service.delete_entity.side_effect = Exception("Delete error")
+
+        barcodes = ['123', '456']
+        self.service._clear_batch_from_staging(barcodes)
+
+        # Should attempt to delete all items even if some fail
+        assert self.service.storage_service.delete_entity.call_count == 2

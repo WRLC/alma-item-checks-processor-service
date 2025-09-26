@@ -220,3 +220,70 @@ class TestIZNoRowTrayReportService:
             self.service._get_staged_items.assert_called_once()
             self.service._create_batch_job.assert_called_once_with(1)
             self.service._enqueue_batches.assert_called_once_with(mock_staged_entities, 'job-id-123')
+
+    def test_process_staged_items_report_job_already_running(self):
+        """Test process_staged_items_report skips when job is already running"""
+        with patch.object(self.service, '_is_job_already_running', return_value=True):
+            self.service.process_staged_items_report()
+            # Should not call any other methods
+
+    def test_is_job_already_running_no_lock(self):
+        """Test _is_job_already_running when no lock exists"""
+        self.service.storage_service.get_entities.return_value = []
+
+        result = self.service._is_job_already_running()
+
+        assert result is False
+        # Should create a lock
+        self.service.storage_service.upsert_entity.assert_called_once()
+
+    def test_is_job_already_running_has_lock(self):
+        """Test _is_job_already_running when lock exists"""
+        from datetime import datetime, timezone
+        lock_entity = {
+            'created_at': datetime.now(timezone.utc).isoformat(),
+            'status': 'locked'
+        }
+        self.service.storage_service.get_entities.return_value = [lock_entity]
+
+        result = self.service._is_job_already_running()
+
+        assert result is True
+
+    def test_is_job_already_running_stale_lock(self):
+        """Test _is_job_already_running removes stale locks"""
+        from datetime import datetime, timezone, timedelta
+
+        # Create a stale lock (older than 30 minutes)
+        stale_time = datetime.now(timezone.utc) - timedelta(minutes=35)
+        lock_entity = {
+            'created_at': stale_time.isoformat(),
+            'status': 'locked'
+        }
+        self.service.storage_service.get_entities.return_value = [lock_entity]
+
+        result = self.service._is_job_already_running()
+
+        assert result is False
+        # Should delete stale lock
+        self.service.storage_service.delete_entity.assert_called_once()
+
+    def test_cleanup_job_lock_if_complete_no_items(self):
+        """Test _cleanup_job_lock_if_complete removes lock when no items remain"""
+        self.service.storage_service.get_entities.return_value = []
+
+        self.service._cleanup_job_lock_if_complete()
+
+        self.service.storage_service.delete_entity.assert_called_once_with(
+            table_name='iznorowtraystagetable',
+            partition_key='iz_batch_lock',
+            row_key='current_job'
+        )
+
+    def test_cleanup_job_lock_if_complete_has_items(self):
+        """Test _cleanup_job_lock_if_complete keeps lock when items remain"""
+        self.service.storage_service.get_entities.return_value = [{'RowKey': '123'}]
+
+        self.service._cleanup_job_lock_if_complete()
+
+        self.service.storage_service.delete_entity.assert_not_called()
